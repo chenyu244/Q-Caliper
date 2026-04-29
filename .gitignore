@@ -50,6 +50,7 @@ htmlcov/
 
 # Project specific
 *.pdf
+*.docx
 *.tmp
 config.local.toml
 bin/
