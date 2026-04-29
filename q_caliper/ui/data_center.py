@@ -220,6 +220,8 @@ class DataCenterWidget(QWidget):
                 main_win.msa_panel.set_dataframe(df, p.name)
             if hasattr(main_win, "spc_panel"):
                 main_win.spc_panel.set_dataframe(df, p.name)
+            if hasattr(main_win, "doe_panel"):
+                main_win.doe_panel.set_dataframe(df, p.name)
 
         except Exception as e:
             InfoBar.error("加载失败", str(e), parent=self)

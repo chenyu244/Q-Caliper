@@ -1,6 +1,6 @@
 [project]
 name = "q-caliper"
-version = "0.1.0"
+version = "1.0.0"
 description = "质量工程桌面分析平台 — Minitab 精华功能的开源替代品"
 readme = "README.md"
 license = "MIT"
