@@ -2,11 +2,15 @@
 
 import sys
 
-from PySide6.QtWidgets import QApplication
+from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication
 
 
 def main() -> None:
     """Application entry point."""
+    QApplication.setHighDpiScaleFactorRoundingPolicy(
+        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
+    )
     app = QApplication(sys.argv)
     app.setApplicationName("Q-Caliper")
     app.setApplicationVersion("0.1.0")
@@ -16,7 +20,7 @@ def main() -> None:
 
     window = MainWindow()
     window.show()
-    sys.exit(app.exec())
+    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
