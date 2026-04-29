@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 
 import typst
+
+
+def _get_template_dir() -> Path:
+    """Resolve template directory for both dev and Nuitka onefile modes."""
+    base = Path(__file__).parent / "templates"
+    if base.exists():
+        return base
+
+    if hasattr(sys, "_MEIPASS"):
+        base = Path(sys._MEIPASS) / "q_caliper" / "reports" / "templates"
+        if base.exists():
+            return base
+
+    return Path(__file__).parent / "templates"
 
 
 @dataclass
@@ -31,7 +46,7 @@ class ReportData:
     chart_paths: list[str] = field(default_factory=list)
 
 
-TEMPLATE_DIR = Path(__file__).parent / "templates"
+TEMPLATE_DIR = _get_template_dir()
 
 
 def render_report(
