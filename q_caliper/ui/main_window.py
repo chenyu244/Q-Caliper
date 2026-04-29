@@ -12,7 +12,7 @@ class MainWindow(FluentWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Q-Caliper v0.2.0")
+        self.setWindowTitle("Q-Caliper v0.3.0")
         self.resize(960, 680)
         self.setMinimumSize(QSize(800, 550))
 
@@ -24,16 +24,19 @@ class MainWindow(FluentWindow):
         from q_caliper.ui.data_center import DataCenterWidget
         from q_caliper.ui.grr_panel import GrrPanelWidget
         from q_caliper.ui.msa_panel import MsaPanelWidget
+        from q_caliper.ui.spc_panel import SpcPanelWidget
 
         self.data_center = DataCenterWidget(self)
         self.cpk_panel = CpkPanelWidget(self)
         self.grr_panel = GrrPanelWidget(self)
         self.msa_panel = MsaPanelWidget(self)
+        self.spc_panel = SpcPanelWidget(self)
 
         self.addSubInterface(self.data_center, FluentIcon.HOME, "数据中心")
         self.addSubInterface(self.cpk_panel, FluentIcon.PIE_SINGLE, "Cpk 分析")
         self.addSubInterface(self.grr_panel, FluentIcon.PEOPLE, "GRR 分析")
         self.addSubInterface(self.msa_panel, FluentIcon.SPEED_HIGH, "MSA 分析")
+        self.addSubInterface(self.spc_panel, FluentIcon.SPEED_MEDIUM, "SPC 分析")
 
         self.navigationInterface.addSeparator()
 
