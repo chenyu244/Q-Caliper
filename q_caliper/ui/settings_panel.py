@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QFormLayout,
     QVBoxLayout,
     QWidget,
@@ -83,11 +83,11 @@ class SystemInfoCard(CardWidget):
 
         import sys
 
-        import PyQt5.QtCore
+        import PySide6.QtCore
 
         info_lines = [
             f"Python: {sys.version.split()[0]}",
-            f"Qt: {PyQt5.QtCore.QT_VERSION_STR}",
+            f"Qt: {PySide6.QtCore.__version__}",
             f"Typst (Python): {'可用' if check_typst_available() else '未安装'}",
         ]
 

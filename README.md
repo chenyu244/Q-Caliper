@@ -36,7 +36,7 @@ Q-Caliper 是一款面向结构与质量工程师的开源桌面分析平台，�
 | 类别 | 组件 | 说明 |
 |------|------|------|
 | 核心语言 | **Python 3.12+** | 类型注解完善，Nuitka 兼容 |
-| UI 框架 | **PyQt5 + PyQt-Fluent-Widgets** | Win11 Fluent Design，深/浅色主题 |
+| UI 框架 | **PySide6 (Qt 6.x) + PySide6-Fluent-Widgets** | Win11 Fluent Design，深/浅色主题 |
 | 打包编译 | **Nuitka** | 编译为 C++ 二进制 EXE（单文件分发） |
 | 报告引擎 | **typst (Python 包)** | 原生 PDF 编译，无需 CLI |
 | 数据处理 | **Pandas 2.x** | Excel/CSV 读写 |
@@ -61,12 +61,17 @@ pip install -r requirements.txt
 python main.py
 ```
 
-### 打包为 EXE
+### 打包为安装程序
 
 ```bash
-pip install -r requirements-dev.txt
+# 1. Nuitka standalone 编译
 python build.py
-# 输出: dist/main.exe（单文件，可直接分发给同事）
+# 输出: dist/main.dist/ (多文件目录)
+
+# 2. Inno Setup 打包为安装程序
+# 安装 Inno Setup 6 (https://jrsoftware.org/isinfo.php)
+# 右键 installer.iss -> Compile
+# 输出: installer/Q-Caliper-1.0.0-Setup.exe
 ```
 
 ### 开发命令
@@ -82,7 +87,8 @@ pytest                        # 运行 30 个单元测试
 ```
 Q-Caliper/
 ├── main.py                          # 应用入口
-├── build.py                         # Nuitka 打包脚本
+├── build.py                         # Nuitka 打包脚本 (standalone)
+├── installer.iss                    # Inno Setup 安装包脚本
 ├── AGENTS.md                        # 开发铁律
 ├── pyproject.toml                   # 项目元数据
 ├── requirements.txt                 # 运行依赖

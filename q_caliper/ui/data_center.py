@@ -5,9 +5,9 @@ from __future__ import annotations
 from pathlib import Path
 
 import pandas as pd
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QDragEnterEvent, QDropEvent
-from PyQt5.QtWidgets import (
+from PySide6.QtCore import Qt
+from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
     QHeaderView,

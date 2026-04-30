@@ -1,4 +1,4 @@
-"""Build script for Nuitka packaging."""
+"""Build script for Nuitka packaging (standalone multi-file mode)."""
 
 from __future__ import annotations
 
@@ -7,15 +7,15 @@ import sys
 
 
 def build() -> None:
-    """Build Q-Caliper EXE using Nuitka."""
+    """Build Q-Caliper standalone using Nuitka."""
     cmd = [
         sys.executable,
         "-m",
         "nuitka",
         "--standalone",
-        "--onefile",
-        "--enable-plugin=pyqt5",
+        "--enable-plugin=pyside6",
         "--output-dir=dist",
+        "--output-filename=Q-Caliper.exe",
         "--windows-console-mode=disable",
         "--product-name=Q-Caliper",
         "--file-version=1.0.0",
@@ -24,14 +24,19 @@ def build() -> None:
         "--file-description=质量工程桌面分析平台",
         "--include-data-dir=q_caliper/reports/templates=q_caliper/reports/templates",
         "--include-data-dir=data/examples=data/examples",
+        "--include-data-dir=images=images",
+        "--include-package=qfluentwidgets",
+        "--include-package=PySide6",
         "main.py",
     ]
 
-    print("Building Q-Caliper EXE...")
+    print("Building Q-Caliper (standalone)...")
     print(f"Command: {' '.join(cmd)}")
     result = subprocess.run(cmd, check=False)
     if result.returncode == 0:
-        print("\nBuild successful! Output: dist/main.exe")
+        print("\nBuild successful!")
+        print("Output: dist/main.dist/")
+        print("Run: dist/main.dist/Q-Caliper.exe")
     else:
         print(f"\nBuild failed with return code {result.returncode}")
         sys.exit(result.returncode)

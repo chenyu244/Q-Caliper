@@ -54,3 +54,5 @@ htmlcov/
 *.tmp
 config.local.toml
 bin/
+installer/
+images/*_full.png

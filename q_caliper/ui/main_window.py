@@ -2,9 +2,26 @@
 
 from __future__ import annotations
 
-from PyQt5.QtCore import QSize
-from PyQt5.QtWidgets import QApplication
+import sys
+from pathlib import Path
+
+from PySide6.QtCore import QSize
+from PySide6.QtGui import QIcon
+from PySide6.QtWidgets import QApplication
 from qfluentwidgets import FluentIcon, FluentWindow, NavigationItemPosition
+
+
+def _resolve_icon() -> str | None:
+    """Find the logo icon for both dev and Nuitka standalone modes."""
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent / "images" / "Q-caliper_logo_small.png",
+    ]
+    if hasattr(sys, "_MEIPASS"):
+        candidates.insert(0, Path(sys._MEIPASS) / "images" / "Q-caliper_logo_small.png")
+    for p in candidates:
+        if p.exists():
+            return str(p)
+    return None
 
 
 class MainWindow(FluentWindow):
@@ -15,6 +32,10 @@ class MainWindow(FluentWindow):
         self.setWindowTitle("Q-Caliper v1.0")
         self.resize(960, 680)
         self.setMinimumSize(QSize(800, 550))
+
+        icon_path = _resolve_icon()
+        if icon_path:
+            self.setWindowIcon(QIcon(icon_path))
 
         self._init_navigation()
         self._center_window()

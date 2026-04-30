@@ -4,13 +4,13 @@
 from __future__ import annotations
 
 import matplotlib
-matplotlib.use("Qt5Agg")
+matplotlib.use("QtAgg")
 import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
-from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PyQt5.QtWidgets import (
+from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFormLayout,
@@ -64,7 +64,7 @@ TABLE_STYLE = """
         border: none;
         border-bottom: 2px solid #0078D4;
         padding: 5px;
-        fontweight: bold;
+        font-weight: bold;
     }
 """
 
