@@ -56,3 +56,8 @@ config.local.toml
 bin/
 installer/
 images/*_full.png
+
+# AI
+ai_workspace/
+.gemini/
+.geminiignore

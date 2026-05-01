@@ -35,7 +35,7 @@ from qfluentwidgets import (
     TitleLabel,
 )
 
-from q_caliper.core.cpk import calculate_cpk, normality_test
+from q_caliper.core.cpk import calculate_capability, normality_test
 
 
 def _setup_matplotlib_font() -> None:
@@ -146,7 +146,7 @@ class ColumnMappingCard(CardWidget):
 
         try:
             norm_result = normality_test(data)
-            cpk_result = calculate_cpk(data, usl_val, lsl_val, sg_size)
+            cpk_result = calculate_capability(data, usl_val, lsl_val, sg_size)
         except Exception as e:
             InfoBar.error("计算错误", str(e), parent=self)
             return

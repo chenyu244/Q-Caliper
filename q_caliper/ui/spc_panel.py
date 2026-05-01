@@ -36,7 +36,7 @@ from qfluentwidgets import (
     TitleLabel,
 )
 
-from q_caliper.core.cpk import calculate_cpk
+from q_caliper.core.cpk import calculate_capability
 from q_caliper.core.spc import SpcChartResult, xbar_r_chart, imr_chart
 
 
@@ -194,7 +194,7 @@ class SpcInputCard(CardWidget):
             cpk_result = None
             if usl_val is not None or lsl_val is not None:
                 with contextlib.suppress(Exception):
-                    cpk_result = calculate_cpk(data, usl_val, lsl_val, sg_size if chart_type == 0 else 1)
+                    cpk_result = calculate_capability(data, usl_val, lsl_val, sg_size if chart_type == 0 else 1)
 
             parent_widget = self.parent()
             while parent_widget and not isinstance(parent_widget, SpcPanelWidget):
@@ -347,7 +347,7 @@ class CpkTrendCard(CardWidget):
             end = start + segment_size if i < n_segments - 1 else n
             seg_data = data[start:end]
             try:
-                result = calculate_cpk(seg_data, usl, lsl, sg_size)
+                result = calculate_capability(seg_data, usl, lsl, sg_size)
                 cpk_values.append(result.cpk)
             except Exception:
                 cpk_values.append(0.0)
