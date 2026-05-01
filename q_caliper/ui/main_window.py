@@ -71,6 +71,11 @@ class MainWindow(FluentWindow):
             position=NavigationItemPosition.BOTTOM,
         )
 
+    def switchTo(self, interface: QWidget) -> None:
+        """Switch to a specific interface programmatically."""
+        self.stackedWidget.setCurrentWidget(interface)
+        self.navigationInterface.setCurrentItem(interface.objectName())
+
     def _center_window(self) -> None:
         screen = QApplication.primaryScreen()
         if screen:

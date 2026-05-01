@@ -378,7 +378,7 @@ class GrrChartsDashboard(QWidget):
         means = result.operator_means
         x = range(len(means))
         ax.bar(x, means, color="#4A90D9", alpha=0.8, edgecolor="white")
-        ax.axhline(result.grand_mean, color="#E74C3C", linestyle="--", linewidth=1.5, label=f"总均值={result.grand_mean:.3f}")
+        ax.axhline(result.grand_mean, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"总均值={result.grand_mean:.3f}")
         ax.set_title("操作者均值图", fontsize=11, fontweight="bold")
         ax.set_xticks(list(x))
         ax.set_xticklabels(operator_names[:len(means)], rotation=45, fontsize=8)
@@ -394,7 +394,7 @@ class GrrChartsDashboard(QWidget):
         means = result.part_means
         x = range(len(means))
         ax.bar(x, means, color="#50C878", alpha=0.8, edgecolor="white")
-        ax.axhline(result.grand_mean, color="#E74C3C", linestyle="--", linewidth=1.5, label=f"总均值={result.grand_mean:.3f}")
+        ax.axhline(result.grand_mean, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"总均值={result.grand_mean:.3f}")
         ax.set_title("零件均值图", fontsize=11, fontweight="bold")
         ax.set_xticks(list(x))
         ax.set_xticklabels(part_names[:len(means)], rotation=45, fontsize=7)
@@ -413,7 +413,7 @@ class GrrChartsDashboard(QWidget):
             ax.plot(
                 range(n_parts), cell_means[:, j],
                 marker="o", color=colors[j % len(colors)],
-                linewidth=2, markersize=6, label=operator_names[j],
+                linewidth=1.2, markersize=6, label=operator_names[j],
             )
         ax.set_title("零件x操作者 交互图", fontsize=11, fontweight="bold")
         ax.set_xticks(range(n_parts))

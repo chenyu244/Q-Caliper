@@ -340,10 +340,10 @@ class BiasChartWidget(CardWidget):
         std = np.std(data, ddof=1)
         if std > 0:
             y = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
-            ax.plot(x, y, "r-", linewidth=2)
+            ax.plot(x, y, "r-", linewidth=1.2)
 
-        ax.axvline(result.reference_value, color="#2ECC71", linestyle="--", linewidth=2, label=f"参考值={result.reference_value}")
-        ax.axvline(mean, color="#E74C3C", linestyle="-", linewidth=1.5, label=f"均值={mean:.3f}")
+        ax.axvline(result.reference_value, color="#2ECC71", linestyle="--", linewidth=1.2, label=f"参考值={result.reference_value}")
+        ax.axvline(mean, color="#E74C3C", linestyle="-", linewidth=1.2, label=f"均值={mean:.3f}")
 
         ax.set_title(f"{col_name} 偏差分析", fontsize=12, fontweight="bold")
         ax.legend(fontsize=9)
@@ -375,7 +375,7 @@ class LinearChartWidget(CardWidget):
         biases = [p.bias for p in result.points]
 
         ax.scatter(refs, biases, color="#4A90D9", s=60, zorder=5, label="观测偏差")
-        ax.plot(result.regression_line_x, result.regression_line_y, "r-", linewidth=2, label=f"回归线 (y={result.slope:.4f}x+{result.intercept:.4f})")
+        ax.plot(result.regression_line_x, result.regression_line_y, "r-", linewidth=1.2, label=f"回归线 (y={result.slope:.4f}x+{result.intercept:.4f})")
         ax.axhline(0, color="#2ECC71", linestyle="--", linewidth=1, alpha=0.7, label="零偏差线")
 
         ax.set_xlabel("参考值", fontsize=10)

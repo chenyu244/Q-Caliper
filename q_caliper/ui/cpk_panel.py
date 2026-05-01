@@ -257,14 +257,14 @@ class HistogramWidget(CardWidget):
         std = cpk_result.std_overall
         if std > 0:
             y = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
-            ax.plot(x, y, "r-", linewidth=2, label="正态拟合曲线")
+            ax.plot(x, y, "r-", linewidth=1.2, label="正态拟合曲线")
 
         if cpk_result.usl is not None:
-            ax.axvline(cpk_result.usl, color="#E74C3C", linestyle="--", linewidth=2, label=f"USL = {cpk_result.usl}")
+            ax.axvline(cpk_result.usl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"USL = {cpk_result.usl}")
         if cpk_result.lsl is not None:
-            ax.axvline(cpk_result.lsl, color="#E74C3C", linestyle="--", linewidth=2, label=f"LSL = {cpk_result.lsl}")
+            ax.axvline(cpk_result.lsl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"LSL = {cpk_result.lsl}")
 
-        ax.axvline(mean, color="#2ECC71", linestyle="-", linewidth=1.5, label=f"均值 = {mean:.3f}")
+        ax.axvline(mean, color="#2ECC71", linestyle="-", linewidth=1.2, label=f"均值 = {mean:.3f}")
 
         cpk_val = cpk_result.cpk
         color = "#27AE60" if cpk_val >= 1.33 else "#E67E22" if cpk_val >= 1.0 else "#E74C3C"

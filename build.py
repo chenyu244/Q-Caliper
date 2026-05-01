@@ -22,11 +22,9 @@ def build() -> None:
         "--product-version=1.0.0",
         "--company-name=Q-Caliper",
         "--file-description=质量工程桌面分析平台",
+        "--windows-icon-from-ico=images/Q-Caliper.ico",
         "--include-data-dir=q_caliper/reports/templates=q_caliper/reports/templates",
-        "--include-data-dir=data/examples=data/examples",
-        "--include-data-dir=images=images",
-        "--include-package=qfluentwidgets",
-        "--include-package=PySide6",
+        "--follow-imports",
         "main.py",
     ]
 

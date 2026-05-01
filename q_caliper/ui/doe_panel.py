@@ -283,7 +283,7 @@ class FactorEffectCard(CardWidget):
                 se_effect = np.sqrt(4 * mse / len(response))
                 t_crit = sp_stats.t.ppf(1 - 0.025, df_resid)
                 sig_line = t_crit * se_effect
-                ax2.axvline(sig_line, color="#E74C3C", linestyle="--", linewidth=1.5, label="alpha=0.05")
+                ax2.axvline(sig_line, color="#E74C3C", linestyle="--", linewidth=1.2, label="alpha=0.05")
                 ax2.legend(fontsize=8)
 
         ax2.grid(True, alpha=0.3, axis="x")

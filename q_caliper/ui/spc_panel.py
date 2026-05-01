@@ -224,11 +224,11 @@ class ControlChartWidget(CardWidget):
         ax = self.figure.add_subplot(111)
 
         x = list(range(1, len(chart.values) + 1))
-        ax.plot(x, chart.values, "o-", color="#4A90D9", markersize=5, linewidth=1.5, label="数据点", zorder=3)
+        ax.plot(x, chart.values, "o-", color="#4A90D9", markersize=5, linewidth=1.0, label="数据点", zorder=3)
 
-        ax.axhline(chart.limits.ucl, color="#E74C3C", linestyle="--", linewidth=1.5, label=f"UCL={chart.limits.ucl:.3f}")
-        ax.axhline(chart.limits.cl, color="#2ECC71", linestyle="-", linewidth=1.5, label=f"CL={chart.limits.cl:.3f}")
-        ax.axhline(chart.limits.lcl, color="#E74C3C", linestyle="--", linewidth=1.5, label=f"LCL={chart.limits.lcl:.3f}")
+        ax.axhline(chart.limits.ucl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"UCL={chart.limits.ucl:.3f}")
+        ax.axhline(chart.limits.cl, color="#2ECC71", linestyle="-", linewidth=1.2, label=f"CL={chart.limits.cl:.3f}")
+        ax.axhline(chart.limits.lcl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"LCL={chart.limits.lcl:.3f}")
 
         ucl = chart.limits.ucl
         cl = chart.limits.cl
