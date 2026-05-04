@@ -1,14 +1,15 @@
 # To-Do List
 
 ## 1. 修复数据中心 (Data Center) 遗留 Bug
-在今天的工作结束时，"数据中心"界面的两项核心交互功能尚未达到预期，需要在后续工作中优先修复：
+在今天的工作结束时，"数据中心"界面的两项核心交互功能尚未达到预期，已在后续工作中修复：
 
-- [ ] **表头角色修改无效**:
+- [x] **表头角色修改无效**:
   - **问题现象**: 用户双击顶部的标准灰色表头时，并没有触发预期的 QInputDialog 下拉菜单（“测量值”、“操作者”等）。
-  - **排查方向**: 检查 `self.table.horizontalHeader().sectionDoubleClicked.connect(self._edit_header)` 这个信号是否正确绑定生效。可能是由于在 `load_dataframe` 中临时禁用信号（`blockSignals`）或其他样式导致的信号丢失。
-- [ ] **自动回写 (Auto-Sync) 机制未触发**:
+  - **修复说明**: 已连接 `sectionDoubleClicked` 信号，并改用 `QInputDialog.getItem` 提供角色选择下拉菜单。
+- [x] **自动回写 (Auto-Sync) 机制未触发**:
   - **问题现象**: 修改了第 0 行的真实列名或数据单元格后，并未将数据实时写回（或没有出现成功通知）。
-  - **排查方向**: 检查 `self.table.itemChanged.connect(self._on_item_changed)` 的触发条件。可能是 DataFrame 重构 (`_get_current_dataframe`) 存在类型转换报错被静默吞掉，或者在信号断开恢复期间出现了逻辑遗漏。
+  - **修复说明**: 已连接 `itemChanged` 信号，并修复了 `_sync_file` 逻辑，现在能正确同步全量数据且不会造成数据截断。
+
 
 ## 2. 数据处理与智能推荐功能完善
 - [ ] **增强的数据类型清洗**: 在获取用户手动编辑的新数据保存到 `[Q]_` 副本时，确保单元格内的数据类型（尤其是纯数字字符串 vs. 浮点数）被 pandas 准确推断，防止写入 Excel 时带有类型警告（如绿三角）。

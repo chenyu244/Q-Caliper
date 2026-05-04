@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -39,6 +40,8 @@ class DataPreviewWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(True)
+        self._full_df: pd.DataFrame | None = None
+        self._loading = False
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -68,6 +71,10 @@ class DataPreviewWidget(QWidget):
         header_row.addWidget(self.smart_btn)
 
         header_row.addStretch()
+
+        self.time_label = BodyLabel("")
+        self.time_label.setStyleSheet("color: #0078D4; margin-right: 15px;")
+        header_row.addWidget(self.time_label)
 
         self.row_label = BodyLabel("")
         self.row_label.setStyleSheet("color: #666;")
@@ -100,7 +107,18 @@ class DataPreviewWidget(QWidget):
                 font-size: 12px;
             }
         """)
+        
+        # 信号连接
+        self.table.horizontalHeader().sectionDoubleClicked.connect(self._edit_header)
+        self.table.itemChanged.connect(self._on_item_changed)
+        
         layout.addWidget(self.table)
+
+    def set_sync_time(self, time_dt: datetime | None = None) -> None:
+        if time_dt:
+            self.time_label.setText(f"同步时间: {time_dt.strftime('%H:%M:%S')}")
+        else:
+            self.time_label.setText("")
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
@@ -137,62 +155,84 @@ class DataPreviewWidget(QWidget):
             return
         
         item = self.table.horizontalHeaderItem(logical_index)
-        if not item:
-            # If item is None, we need to get the text from the model or create an item first
-            current_header = self.table.model().headerData(logical_index, Qt.Orientation.Horizontal)
-            current_header = str(current_header) if current_header else str(logical_index)
-        else:
-            current_header = item.text()
-
-        new_header, ok = QInputDialog.getText(self, "修改表头", "请输入新的表头名称:", text=current_header)
+        current_role = item.text() if item else "未分类"
         
-        if ok and new_header and new_header != current_header:
+        roles = ["测量值", "操作者", "零件", "时间", "因子", "未分类"]
+        new_role, ok = QInputDialog.getItem(
+            self, "修改数据角色", "请选择该列的数据角色:", roles, 
+            current=roles.index(current_role) if current_role in roles else 5,
+            editable=False
+        )
+        
+        if ok and new_role:
             if item:
-                item.setText(new_header)
+                item.setText(new_role)
             else:
-                self.table.setHorizontalHeaderItem(logical_index, QTableWidgetItem(new_header))
+                self.table.setHorizontalHeaderItem(logical_index, QTableWidgetItem(new_role))
             
-            # 自动触发同步
-            self._sync_file()
-            InfoBar.success("表头已修改", f"表头已修改为 '{new_header}' 并自动同步至文件。", parent=self, duration=2000)
+            # 修改角色只同步状态，静默处理
+            self._sync_file(silent=True)
+            InfoBar.success("角色已更新", f"列 {logical_index} 的角色已更新为 '{new_role}'", parent=self, duration=2000)
 
     def _on_item_changed(self, item: QTableWidgetItem) -> None:
-        # 当单元格数据被修改时自动同步
-        self._sync_file()
+        if self._loading or self._full_df is None:
+            return
+            
+        row = item.row()
+        col = item.column()
+        val = item.text()
+        
+        # 暂时关闭信号避免递归
+        self.table.blockSignals(True)
+        
+        try:
+            if row == 0:
+                # 修改列名
+                new_cols = list(self._full_df.columns)
+                new_cols[col] = val
+                self._full_df.columns = new_cols
+                
+                # 加粗显示列名
+                font = item.font()
+                font.setBold(True)
+                item.setFont(font)
+            else:
+                # 修改数据 (行索引在表格中 offset 了 1)
+                # 尝试类型转换
+                try:
+                    if not val:
+                        converted_val = None
+                    elif "." in val:
+                        converted_val = float(val)
+                    else:
+                        converted_val = int(val)
+                except ValueError:
+                    converted_val = val
+                
+                self._full_df.iloc[row - 1, col] = converted_val
+                
+            # 自动保存应该静默进行，避免频繁弹窗干扰用户
+            self._sync_file(silent=True)
+        except Exception as e:
+            InfoBar.error("数据更新失败", str(e), parent=self)
+        finally:
+            self.table.blockSignals(False)
 
-    def _sync_file(self) -> None:
+    def _sync_file(self, silent: bool = False) -> None:
+        if self._full_df is None:
+            return
+            
         parent = self.parent()
         while parent and not hasattr(parent, "sync_file"):
             parent = parent.parent()
         if hasattr(parent, "sync_file"):
-            parent.sync_file(self._get_current_dataframe())
+            parent.sync_file(self._full_df, silent=silent)
 
     def _get_current_dataframe(self) -> pd.DataFrame:
-        """Constructs a DataFrame from the current QTableWidget contents. Row 0 contains column names."""
-        if self.table.rowCount() == 0:
-            return pd.DataFrame()
-            
-        cols = []
-        for j in range(self.table.columnCount()):
-            item = self.table.item(0, j)
-            cols.append(item.text() if item else f"Column_{j}")
-        
-        data = []
-        for row in range(1, self.table.rowCount()):
-            row_data = []
-            for col in range(self.table.columnCount()):
-                item = self.table.item(row, col)
-                val = item.text() if item else None
-                # Try to convert to numeric if possible to match pandas reading
-                if val:
-                    try:
-                        val = float(val) if '.' in val else int(val)
-                    except ValueError:
-                        pass
-                row_data.append(val)
-            data.append(row_data)
-        
-        return pd.DataFrame(data, columns=cols)
+        """Constructs a DataFrame from the current QTableWidget contents. Row 0 contains column names.
+        DEPRECATED: Now uses self._full_df directly to avoid truncation.
+        """
+        return self._full_df if self._full_df is not None else pd.DataFrame()
 
     def _goto_analysis(self) -> None:
         main_win = self.window()
@@ -200,7 +240,10 @@ class DataPreviewWidget(QWidget):
             main_win.switchTo(main_win.cpk_panel)
 
     def load_dataframe(self, df: pd.DataFrame, filename: str) -> None:
+        self._loading = True
         self.table.blockSignals(True)
+        self._full_df = df.copy() # 保存全量数据副本
+        
         self.file_label.setText(filename)
         n_rows, n_cols = df.shape
         self.row_label.setText(f"{n_rows} 行 x {n_cols} 列")
@@ -247,6 +290,7 @@ class DataPreviewWidget(QWidget):
 
         self.table.resizeColumnsToContents()
         self.table.blockSignals(False)
+        self._loading = False
         self.sync_btn.show()
         self.smart_btn.show()
 
@@ -290,8 +334,18 @@ class DataCenterWidget(QWidget):
             if not p.name.startswith("[Q]_"):
                 target_name = f"[Q]_{p.name}"
                 target_path = p.with_name(target_name)
-                if not target_path.exists():
-                    shutil.copy2(path, target_path)
+                
+                if target_path.exists():
+                    title = "发现已存在的分析副本"
+                    content = f"文件夹中已存在分析副本 '{target_path.name}'。\n是否用当前选中的源文件覆盖它？(注意：覆盖后将丢失之前在副本中的所有修改)"
+                    w = MessageBox(title, content, self)
+                    w.yesButton.setText("覆盖")
+                    w.cancelButton.setText("取消")
+                    if not w.exec():
+                        return # 用户取消
+                
+                # 无论是新生成还是确认覆盖，都进行拷贝
+                shutil.copy2(path, target_path)
 
             df = self._smart_read_and_clean(target_path)
             if df is None:
@@ -300,6 +354,7 @@ class DataCenterWidget(QWidget):
             self.df = df
             self.filepath = str(target_path)
             self.preview.load_dataframe(df, target_path.name)
+            self.preview.set_sync_time(datetime.now())
 
             # Record timestamp for future sync
             self._last_modified_time = os.path.getmtime(self.filepath)
@@ -321,7 +376,7 @@ class DataCenterWidget(QWidget):
         except Exception as e:
             InfoBar.error("加载失败", str(e), parent=self)
 
-    def sync_file(self, current_df: pd.DataFrame) -> None:
+    def sync_file(self, current_df: pd.DataFrame, silent: bool = False) -> None:
         if not self.filepath:
             return
 
@@ -362,7 +417,10 @@ class DataCenterWidget(QWidget):
             if hasattr(main_win, "doe_panel"):
                 main_win.doe_panel.set_dataframe(current_df, Path(self.filepath).name)
 
-            InfoBar.success("同步成功", "界面修改已保存至文件并更新所有分析模块", parent=self, duration=2000)
+            self.preview.set_sync_time(datetime.now())
+
+            if not silent:
+                InfoBar.success("同步成功", "界面修改已保存至文件并更新所有分析模块", parent=self, duration=2000)
             
         except Exception as e:
             InfoBar.error("同步失败", str(e), parent=self)
