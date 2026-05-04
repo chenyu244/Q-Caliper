@@ -16,6 +16,8 @@
     lang: "zh",
   )
 
+  set par(leading: 1em, justify: true)
+
   show heading: set text(fill: navy)
   show link: set text(fill: blue)
   show raw.where(block: true): set text(font: ("Consolas", "Microsoft YaHei"), size: 10pt)

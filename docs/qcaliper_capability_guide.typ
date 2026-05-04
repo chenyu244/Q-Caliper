@@ -60,9 +60,9 @@
 *算法步骤*：
 
 1. 将 $n$ 个数据分为 $k$ 个子组，每组大小 $m$。
-2. 计算每个子组的极差：$R_i = max(x_i) - min(x_i)$
-3. 平均极差：$macron(R) = 1/k sum_(i=1)^k R_i$
-4. 短期标准差：$sigma_"within" = macron(R) / d_2(m)$
+2. 计算每个子组的极差：$ R_i = max(x_i) - min(x_i) $
+3. 平均极差：$ macron(R) = 1/k sum_(i=1)^k R_i $
+4. 短期标准差：$ sigma_"within" = macron(R) / d_2(m) $
 
 *用途*：用于 *Cpk* 计算（过程能力，短期）
 
@@ -70,12 +70,12 @@
 
 #align(center)[
   #table(
-    columns: (1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
-    inset: 8pt,
+    columns: (1.5fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr, 1fr),
+    inset: 6pt,
     align: center,
     fill: luma(240),
-    [$m$], [2], [3], [4], [5], [6],
-    [$d_2$], [1.128], [1.693], [2.059], [2.326], [2.534],
+    [$m$], [2], [3], [4], [5], [6], [7], [8], [9], [10],
+    [$d_2$], [1.128], [1.693], [2.059], [2.326], [2.534], [2.704], [2.847], [2.970], [3.078],
   )
 ]
 
@@ -93,19 +93,17 @@ sigma_within = np.mean(ranges) / d2
 
 *适用条件*：
 - 数据无法按逻辑分组（生产过程连续，无明显批次边界）
-- 使用 `subgroup_size=1` 或 `analysis_type="individual"` 时自动启用
+- 使用 `subgroup_size=1` 或未指定（默认为 1）时自动启用
 
 *算法步骤*：
 
 1. 计算相邻观测值的移动极差：$"MR"_i = |x_(i+1) - x_i|$ （共 $n-1$ 个值）
-2. 平均移动极差：$overline("MR") = 1/(n-1) sum_(i=1)^(n-1) "MR"_i$
-3. 短期标准差：$sigma_"within" = overline("MR") / d_2(2) = overline("MR") / 1.128$
+2. 平均移动极差：$ overline("MR") = 1/(n-1) sum_(i=1)^(n-1) "MR"_i $
+3. 短期标准差：$ sigma_"within" = overline("MR") / d_2(2) = overline("MR") / 1.128 $
 
-*用途*：用于 *Ppk* 计算（当无法分组的长期数据）
+*用途*：用于 *Cpk* 计算（当 subgroup_size=1 时，基于移动极差估算短期波动）
 
-*诊断价值*：
-- 如果 MR 序列波动大，说明过程存在时间相关的漂移。
-- I-MR 图可直观展现过程稳定性（点是否超出控制线）。
+*行业标准*：该方法（基于 $overline("MR")$ 估算 $sigma$）是 Minitab、AIAG SPC 手册以及 IATF 16949 在处理单值数据时的默认标准算法，具有极高的行业认可度。
 
 *Q-Caliper 实现*：
 ```python
@@ -116,33 +114,30 @@ sigma_within = np.mean(moving_ranges) / d2_mr
 
 ---
 
-=== 2.3 方法 C：Cmk（设备能力，全样本标准差）
+=== 2.3 方法 C：全样本标准差（用于 Cmk 和 Ppk）
 
 *适用条件*：
-- 采集 *50-100 个连续样品*（单一机器，不分组）
-- 采集期间机器设置、材料批次、操作员等不能改变
-- 用于设备 FAT/SAT 验收、设备调试
-- 使用 `analysis_type="equipment"` 时启用
+- *计算 Cmk*：推荐采集 50-100 个连续样品（单机调试，不分组）
+- *计算 Ppk*：全量长期数据（包含所有时间漂移，不考虑s子组分割）
+- Q-Caliper 默认自动计算并在结果中返回 `cmk` 和 `ppk`
 
 *算法步骤*：
 
-1. 采集 50-100 个连续样品，*不进行任何子组分割*
-2. 计算全样本标准差：$sigma = s = sqrt(sum(x_i - macron(x))^2 / (n-1))$
-3. Cmk 公式：
-   $ C_"mk" = min(("USL" - macron(x)) / (3s), (macron(x) - "LSL") / (3s)) $
+1. 采集数据，*不进行任何子组分割*
+2. 计算全样本标准差：$ sigma = s = sqrt(sum(x_i - macron(x))^2 / (n-1)) $
+3. 计算公式：
+   $ C_"mk" / P_"pk" = min(("USL" - macron(x)) / (3s), (macron(x) - "LSL") / (3s)) $
 
 *关键差异*：
-- Cmk *不使用子组极差*（与 Cpk 不同）
-- Cmk 用*全样本标准差*（与 Ppk 相同的公式，但数据特征不同）
-- Cmk 评估设备在短时间内的重复精度
-- Cpk 用子组极差分离时间漂移，Cmk 直接用全样本
+- *Cmk* 侧重于评估设备在极短时间内的硬件重复精度
+- *Ppk* 侧重于评估过程在长期（含多种环境变异）下的实际表现
+- 两者均使用全样本标准差，但*数据采集的时间跨度与背景逻辑*完全不同
 
 *Q-Caliper 实现*：
 ```python
-if analysis_type == "equipment":
-    # 不分组，直接用全样本标准差
-    sigma = np.std(data, ddof=1)
-    cmk = min((usl - mean) / (3*sigma), (mean - lsl) / (3*sigma))
+# Cmk 总是伴随计算并返回，无需专门指定模式
+sigma_overall = np.std(data, ddof=1)
+cmk = min((usl - mean) / (3*sigma_overall), (mean - lsl) / (3*sigma_overall))
 ```
 
 *汽车标准对应*：
@@ -161,14 +156,14 @@ if analysis_type == "equipment":
 
 #align(center)[
   #table(
-    columns: (2fr, 1.5fr, 1.5fr, 2.5fr),
+    columns: (1.8fr, 1.5fr, 1.2fr, 3fr),
     inset: 10pt,
     fill: (x, y) => if y == 0 { luma(200) } else if calc.rem(y, 2) == 0 { luma(245) } else { white },
     stroke: 0.5pt,
-    [*应用场景*], [*样本数*], [*子组大小*], [*目的与诊断*],
+    [*应用场景*], [*推荐样本数*], [*子组大小*], [*目的与诊断*],
     
     [设备 FAT/SAT\
-    （单机验收）], [10-30], [见注¹], 
+    （单机验收）], [50-100], [/], 
     [硬件精度验证。无足够样本来检测漂移，不做子组分析。],
     
     [常规生产验证\
@@ -185,9 +180,6 @@ if analysis_type == "equipment":
   )
 ]
 
-#align(left, text(9pt, gray)[
-  注¹：FAT/SAT 阶段推荐使用 `analysis_type="equipment"` 获取 Cmk，简化流程。或用 `subgroup_size=1` 获取 Ppk 作参考。
-])
 
 ---
 
@@ -198,7 +190,7 @@ if analysis_type == "equipment":
 - 子组间应包含足够的时间差（可能发生漂移的机会）。
 - 例：加工中心每 10 分钟采 5 件为一个子组，共 12 组 → 2 小时内评估过程。
 
-*原则 2：当一次性取 30 件时，何时设置 subgroup_size=5？*
+*原则 2：当一次性取 30 件时，仍然推荐子组n=5*
 
 即便 30 个数据是*连续产出、物理上不分组*的，也应该"人为分组"为 6 个子组（每组 5 件）：
 - 这样可以用极差法估算 $sigma_"within"$，而不是直接用全样本标准差。
@@ -209,10 +201,10 @@ if analysis_type == "equipment":
 - Cpk = 1.80, Ppk = 1.45 → 数据内部存在漂移（前 15 件可能偏高，后 15 件偏低）
 - Cpk ≈ Ppk = 1.50 → 分布均匀，短期能力就是长期表现
 
-*原则 3：当使用 subgroup_size=1 时*
-- 仅适用于*极少样本（$<20$）* 或 *纯粹关心长期质量*（如月度汇总）。
-- I-MR 方法会自动用移动极差估算 $sigma_"within"$，Cpk 值更接近 Ppk。
-- 此时*无法诊断过程漂移*（因为子组间差异被平均掩盖）。
+*原则 3：当使用单值数据 ($n=1$) 时*
+- 适用于*无法逻辑分组*（如连续流、化工参数、自动化单件生产）或*样本量极少*的场景。
+- I-MR 方法通过移动极差估算 $sigma_"within"$。虽然 $C_"pk"$ 仍可用于对比 $P_"pk"$ 诊断漂移，但对微小漂移的敏感度低于有理子组法。
+- 此时应优先结合 *I-MR 控制图* 来观察点与点之间的稳定性。
 
 ---
 
@@ -220,7 +212,7 @@ if analysis_type == "equipment":
 
 === 4.1 通过 Cpk vs Ppk 对比诊断
 
-*前提*：使用 `subgroup_size >= 2`（或 `analysis_type="equipment"`）。
+*前提*：已计算获得 $sigma_"within"$（无论是通过子组极差还是移动极差）。
 
 #table(
   columns: (1.8fr, 1.8fr, 3fr),
@@ -259,86 +251,59 @@ if analysis_type == "equipment":
 
 === 4.2 个体数据（subgroup_size=1）的诊断
 
-当使用 I-MR 方法时，Cpk ≈ Ppk（两者相等或极接近）。此时改用：
+当使用 I-MR 方法时，虽然 $C_"pk"$ 与 $P_"pk"$ 在无波动场景下较为接近，但若数据存在缓慢趋势，两者差值依然具有诊断意义。此时应结合以下手段：
 
-1. *直方图 + 正态性检验* → 数据分布是否符合规格
-2. *I-MR 控制图* → 是否有超出控制限的点（表示特异波动）
-3. *Ppk 绝对值* → 判断能力等级
+1. *直方图 + 正态性检验* -> 数据分布是否符合规格
+2. *I-MR 控制图* -> 是否有超出控制限的点（表示特异波动）
+3. *Ppk 绝对值* -> 判断能力等级
 
-| Ppk 范围 | 能力等级 | 备注 |
-|---------|--------|------|
-| ≥ 1.67 | 优 | 较少不良品（DPMO < 50） |
-| 1.33-1.67 | 良好 | 符合 IATF 标准 |
-| 1.00-1.33 | 合格 | 允许但需改进 |
-| < 1.00 | 不合格 | 需要立即改善 |
+#table(
+  columns: (1fr, 1.2fr, 3fr),
+  inset: 10pt,
+  fill: (x, y) => if y == 0 { luma(230) } else { white },
+  stroke: 0.5pt,
+  [*Ppk 范围*], [*能力等级*], [*备注*],
+  [≥ 1.67], [优], [较少不良品（DPMO < 50）],
+  [1.33 - 1.67], [良好], [符合 IATF 标准],
+  [1.00 - 1.33], [合格], [允许但需改进],
+  [< 1.00], [不合格], [需要立即改善],
+)
 
 ---
 
 == 5. API 调用指南与代码示例
 
-=== 5.1 三种核心调用模式
+=== 5.1 核心调用逻辑：智能自动化
 
-*模式 1：设备能力（Cmk）*
+Q-Caliper 推荐使用默认的智能模式。无论何种场景，引擎都会一次性计算并返回所有指标，差异仅在于你如何解读它们。
+
+*推荐调用方式 (全能模式)*
 
 ```python
 from qcaliper_cpk import calculate_capability
 
-# FAT/SAT 设备验收
-data = np.array([100.1, 100.2, 100.0, 100.3, ...])  # 20-30 件
-
+# 只需提供数据和规格限，引擎会自动处理一切
 result = calculate_capability(
     data=data,
     usl=100.5,
     lsl=99.5,
-    analysis_type="equipment"
+    subgroup_size=5  # 指定子组大小以启用变异分离诊断
 )
 
-print(f"Cmk: {result.cmk:.3f}")
-print(f"分析模式: {result.analysis_mode}")  # 输出: equipment
+# 一次性获取所有指标进行对比
+print(f"Cpk (短期潜力): {result.cpk:.3f}")
+print(f"Ppk (长期性能): {result.ppk:.3f}")
+print(f"Cmk (设备能力): {result.cmk:.3f}")
+print(f"分析模式: {result.analysis_mode}")  # cpk_grouped 或 cpk_individual
 ```
 
 ---
 
-*模式 2：过程能力（Cpk），有理子组*
+*解读指南*
 
-```python
-# 常规质检，30 件数据分为 6 组
-result = calculate_capability(
-    data=data,
-    usl=100.5,
-    lsl=99.5,
-    subgroup_size=5,
-    analysis_type="subgrouped"
-)
-
-print(f"Cpk: {result.cpk:.3f}")
-print(f"Ppk: {result.ppk:.3f}")
-print(f"子组数: {result.num_subgroups}")
-
-# 诊断漂移
-if result.cpk - result.ppk > 0.2:
-    print("⚠️  过程存在漂移，需检查工艺稳定性")
-else:
-    print("✓ 过程稳定")
-```
-
----
-
-*模式 3：过程性能（Ppk），个体测量*
-
-```python
-# 长期质量评估，无法分组
-result = calculate_capability(
-    data=data,
-    usl=100.5,
-    lsl=99.5,
-    analysis_type="individual"  # 或省略，自动选 individual
-)
-
-print(f"Ppk: {result.ppk:.3f}")
-print(f"样本数: {result.sample_size}")
-print(f"不合格率: {result.pct_total_out:.4%}")
-```
+1. *验收设备*：关注 `result.cmk`。推荐连续 50 个样品的 Cmk ≥ 1.67。
+2. *评估过程*：对比 `result.cpk` 与 `result.ppk`。如果差值大，则过程不稳定。
+3. *单值数据*：不设置 `subgroup_size`，此时 `result.cpk` 基于移动极差 (I-MR) 计算。
 
 ---
 
@@ -372,7 +337,7 @@ print("=" * 50)
 print("Q-Caliper 过程能力评估报告")
 print("=" * 50)
 print(f"样本数量: {result.sample_size}")
-print(f"分析模式: {result.analysis_mode}")
+print(f"分析模式: {result.analysis_mode}")  # 输出: cpk_grouped
 print(f"子组数: {result.num_subgroups}\n")
 
 print("基本统计:")
@@ -410,8 +375,10 @@ if result.cpk > result.ppk + 0.15:
 
 === 6.1 d₂ 常数与精度
 
-Q-Caliper 使用标准 d₂ 表，覆盖子组大小 2-10。对于 n > 10，使用公式：
-$ d_2(n) approx sqrt((pi n) / (2n - 1)) $
+Q-Caliper 内置了标准 $d_2$ 常数表，支持子组大小 $n$ 从 2 到 25 的精确计算。
+
+- 对于 $n <= 25$：直接使用高精度查表值（源自 ASTM E158 标准）。
+- 对于 $n > 25$：引擎将抛出异常，因为当子组过大时，极差法的统计效率会显著下降，此时推荐使用 $s$ 估算法（即通过平均标准差 $macron(s)/c_4$ 来估算 $sigma$，该方法能利用子组内所有数据，在大样本下更稳健）。
 
 ---
 
@@ -477,8 +444,6 @@ $ d_2(n) approx sqrt((pi n) / (2n - 1)) $
 - ✓ 完整 Cmk/Cpk/Ppk 实现
 - ✓ Xbar-R 与 I-MR 双引擎
 - ✓ Shapiro-Wilk / Anderson-Darling 正态性检验
-- ✓ 向后兼容 `calculate_cpk()` 接口
-
 ---
 
 #align(center, text(9pt, gray)[

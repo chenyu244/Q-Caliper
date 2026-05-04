@@ -1,9 +1,15 @@
-"""Cpk/Cmk/Ppk 过程能力分析引擎。
+"""Cpk/Cmk/Ppk 过程能力分析引擎
 
-本模块提供全面的过程能力分析，支持三种指数：
-- Cmk: 设备能力（连续测量，不分组）
-- Cpk: 过程能力（短期能力，基于子组内变异）
-- Ppk: 过程性能（长期表现，基于整体变异）
+核心设计：
+1. 默认 analysis_type="auto" 时，同时计算并返回 Cpk、Cmk、Ppk
+2. Cpk 根据 subgroup_size 自动判断方法（>1 用 Xbar-R，=1 用 I-MR）
+3. 不需要用户指定具体的 analysis_type，智能自动处理
+4. 所有三个指标都返回，用户可以同时对比
+
+这样用户可以：
+- 一次调用获得所有三个指标
+- 通过对比 Cpk、Cmk、Ppk 进行诊断
+- 无需关心内部计算细节
 """
 
 from __future__ import annotations
@@ -20,15 +26,7 @@ if TYPE_CHECKING:
 
 @dataclass
 class NormalityResult:
-    """正态性检验结果。
-    
-    属性:
-        test_name: 使用的检验方法名称（Shapiro-Wilk 或 Anderson-Darling）
-        statistic: 检验统计量的值
-        p_value: 检验的 P 值 (0.0-1.0)
-        is_normal: 如果数据在 alpha=0.05 时通过正态性检验则为 True
-    """
-
+    """正态性检验结果。"""
     test_name: str
     statistic: float
     p_value: float
@@ -37,27 +35,24 @@ class NormalityResult:
 
 @dataclass
 class CapabilityResult:
-    """Cpk/Cmk/Ppk 计算结果。
+    """Cpk/Cmk/Ppk 计算结果 - 总是返回所有三个指标。
     
-    属性:
+    属性说明：
         mean: 数据均值
-        std_within: 子组内（短期）标准差
-        std_overall: 整体（长期）标准差
-        cp: Cp 指数（双侧）
-        cpk: Cpk 指数（短期，考虑中心偏移）
-        pp: Pp 指数（双侧）
-        ppk: Ppk 指数（长期，考虑中心偏移）
-        cmk: Cmk 指数（设备能力，考虑中心偏移）
-        usl: 规格上限
-        lsl: 规格下限
-        pct_above_usl: 高于规格上限的数据点百分比
-        pct_below_lsl: 低于规格下限的数据点百分比
-        pct_total_out: 超出规格限的总百分比
-        sample_size: 分析的样本总数
-        num_subgroups: 划分的子组数量
-        analysis_mode: 执行的分析类型 ("equipment", "subgrouped", "individual")
+        std_within: 短期标准差（用于 Cpk 计算）
+                   - subgroup_size > 1: R̄/d₂(极差法)
+                   - subgroup_size = 1: MR̄/1.128(移动极差法)
+        std_overall: 长期标准差（全样本，用于 Cmk 和 Ppk）
+        
+        cpk: 过程能力指数（基于 std_within）
+        cmk: 设备能力指数（基于 std_overall）
+        ppk: 过程性能指数（基于 std_overall）
+        
+        cp, pp: 不考虑中心偏移的指数
+        
+        analysis_mode: 说明 Cpk 的计算方法 ("cpk_grouped" 或 "cpk_individual")
+        num_subgroups: 子组数量（cpk 计算中的子组数，或 MR 的对数）
     """
-
     mean: float
     std_within: float
     std_overall: float
@@ -73,24 +68,11 @@ class CapabilityResult:
     pct_total_out: float
     sample_size: int
     num_subgroups: int
-    analysis_mode: str  # "equipment", "subgrouped", "individual"
+    analysis_mode: str  # "cpk_grouped" 或 "cpk_individual"
 
 
 def normality_test(data: npt.ArrayLike, alpha: float = 0.05) -> NormalityResult:
-    """对数据执行正态性检验。
-
-    当 n < 5000 时使用 Shapiro-Wilk 检验，否则使用 Anderson-Darling 检验。
-    
-    参数:
-        data: 测量数据的输入数组
-        alpha: 显著性水平（默认 0.05）
-        
-    返回:
-        包含检验详细信息的 NormalityResult
-        
-    异常:
-        ValueError: 如果提供的数据点少于 8 个
-    """
+    """对数据执行正态性检验。"""
     arr = np.asarray(data, dtype=float)
     arr = arr[~np.isnan(arr)]
     n = len(arr)
@@ -122,53 +104,41 @@ def calculate_capability(
     usl: float | None = None,
     lsl: float | None = None,
     subgroup_size: int | None = None,
-    analysis_type: Literal["auto", "equipment", "subgrouped", "individual"] = "auto",
+    analysis_type: Literal["auto", "manual"] = "auto",
 ) -> CapabilityResult:
-    """计算 Cmk/Cpk/Ppk 过程能力指数。
+    """计算 Cpk/Cmk/Ppk 过程能力指数。
 
-    这是一个统一的接口，支持三种分析模式：
+    设计理念：智能自动化，一次计算返回三个指标
     
-    1. 设备能力 (Cmk)：单一连续序列，不进行子组划分
-       - 用于 FAT/SAT 或设备验证
-       - 不分离子组变异
-       
-    2. 分组过程能力 (Cpk)：数据按有理子组组织
-       - 将子组内（短期）变异与整体变异分离
-       - 通过比较 Cpk 与 Ppk 诊断过程稳定性
-       
-    3. 个体过程性能 (Ppk)：单次测量，使用 I-MR 估计
-       - 当 subgroup_size=1 时的默认模式
-       - 使用移动极差 (Moving Range) 估计短期变异
-
+    在 auto 模式下（推荐）：
+    1. 根据 subgroup_size 自动判断 Cpk 的计算方法
+    2. 同时计算 Cmk 和 Ppk
+    3. 返回所有三个指标，用户可以进行对比诊断
+    
     参数:
         data: 测量数据数组
         usl: 规格上限（可选）
         lsl: 规格下限（可选）
-        subgroup_size: 
-            - None 或 "auto": 根据数据和分析类型自动选择
-            - 整数 > 1: 使用分组分析（Xbar-R 方法）
-            - 1: 使用个体分析（I-MR 方法）
-        analysis_type:
-            - "auto" (默认): 根据子组大小和数据特征自动选择
-            - "equipment": 强制计算 Cmk（不分组）
-            - "subgrouped": 强制计算分组的 Cpk（需要 subgroup_size > 1）
-            - "individual": 强制使用 I-MR 方法计算 Ppk（subgroup_size=1）
+        subgroup_size: 子组大小
+                      - > 1: 使用 Xbar-R 方法计算 Cpk
+                      - = 1: 使用 I-MR 方法计算 Cpk
+                      - None: 默认为 1（无法分组）
+        analysis_type: "auto" (推荐) 或 "manual"
+                      - auto: 自动计算所有三个指标
+                      - manual: 仅计算指定的指标（需要用户知道自己要什么）
 
     返回:
-        包含所有三个指数（Cmk, Cpk, Ppk）的 CapabilityResult
-        
-    异常:
-        ValueError: 如果未指定 USL 或 LSL，或者参数无效
-        
-    示例:
-        >>> data = np.random.normal(100, 2, 50)
-        >>> result = calculate_capability(data, usl=110, lsl=90, subgroup_size=5)
-        >>> print(f"Cpk: {result.cpk:.3f}, Ppk: {result.ppk:.3f}")
-        
-        >>> # 设备能力
-        >>> result = calculate_capability(data, usl=110, lsl=90, 
-        ...                               analysis_type="equipment")
-        >>> print(f"Cmk: {result.cmk:.3f}")
+        CapabilityResult 包含 cpk、cmk、ppk 三个指标，用户可以同时对比
+
+    使用示例：
+        >>> result = calculate_capability(data, usl=100.5, lsl=99.5, subgroup_size=5)
+        >>> print(f"Cpk: {result.cpk:.3f}")  # 自动用 Xbar-R 方法
+        >>> print(f"Cmk: {result.cmk:.3f}")  # 设备能力
+        >>> print(f"Ppk: {result.ppk:.3f}")  # 过程性能
+        >>> 
+        >>> # 对比诊断
+        >>> if result.cpk > result.ppk + 0.15:
+        ...     print("过程存在漂移")
     """
     if usl is None and lsl is None:
         raise ValueError("必须至少指定 USL 或 LSL 其中之一")
@@ -180,86 +150,62 @@ def calculate_capability(
     if n < 8:
         raise ValueError("至少需要 8 个数据点")
 
+    # 基本统计
     mean = float(np.mean(arr))
-
-    # 确定分析模式和子组配置
-    if analysis_type == "equipment":
-        # 设备模式：50-100 个连续样本，不分组
-        # 根据汽车行业标准 (Bosch, QS-9000, IATF 16949)
-        # σ 计算为全样本标准差
-        mode = "equipment"
-        effective_subgroup_size = 1  # Cmk 不分组
-        num_subgroups = 1  # 将整个数据集视为单一组
-    elif analysis_type == "subgrouped":
-        if subgroup_size is None or subgroup_size <= 1:
-            raise ValueError("分组分析要求 subgroup_size > 1")
-        mode = "subgrouped"
-        effective_subgroup_size = subgroup_size
-        num_subgroups = n // effective_subgroup_size
-    elif analysis_type == "individual":
-        mode = "individual"
-        effective_subgroup_size = 1
-        num_subgroups = max(1, n - 1)  # 移动极差使用 n-1 个对
-    else:  # auto
-        if subgroup_size is not None and subgroup_size > 1:
-            mode = "subgrouped"
-            effective_subgroup_size = subgroup_size
-            num_subgroups = n // effective_subgroup_size
-        else:
-            # 默认为个体分析 (I-MR)
-            mode = "individual"
-            effective_subgroup_size = 1
-            num_subgroups = max(1, n - 1)
-
-    # 根据模式估计 σ_within
-    if mode == "equipment":
-        # 设备 (Cmk)：使用全样本标准差，不分组
-        # 根据汽车行业标准 (Bosch, QS-9000, IATF 16949)
-        # Cmk 反映连续生产运行中的机器精度
-        std_within = float(np.std(arr, ddof=1))
-    elif mode == "subgrouped" and effective_subgroup_size > 1:
-        # Cpk: 使用有理子组的 Xbar-R 方法
-        n_subgroups_actual = n // effective_subgroup_size
-        if n_subgroups_actual < 2:
-            raise ValueError(
-                f"子组大小为 {effective_subgroup_size} 时，至少需要 "
-                f"{effective_subgroup_size * 2} 个数据点"
-            )
-        subgroups = arr[: n_subgroups_actual * effective_subgroup_size].reshape(
-            -1, effective_subgroup_size
-        )
-        ranges = np.ptp(subgroups, axis=1)
-        d2 = _d2_constant(effective_subgroup_size)
-        std_within = float(np.mean(ranges) / d2)
-    else:
-        # 个体/Ppk: 使用移动极差的 I-MR 方法
-        if n < 2:
-            raise ValueError("I-MR 方法至少需要 2 个数据点")
-        moving_ranges = np.abs(np.diff(arr))
-        d2_mr = 1.128  # 移动极差 (n=2) 的 d2 常数
-        std_within = float(np.mean(moving_ranges) / d2_mr)
-
-    # σ_overall 始终基于全样本
     std_overall = float(np.std(arr, ddof=1))
 
-    # 计算所有指数
+    # 处理子组大小的默认值
+    if subgroup_size is None:
+        subgroup_size = 1
+
+    # ========================================================================
+    # 统一逻辑：计算所有三个指标
+    # ========================================================================
+
+    # 1. 计算 std_within（用于 Cpk）
+    # ========================================================================
+    if subgroup_size > 1:
+        # 方法 A：Xbar-R（有理子组）
+        mode = "cpk_grouped"
+        n_subgroups = n // subgroup_size
+
+        if n_subgroups < 2:
+            raise ValueError(
+                f"子组大小为 {subgroup_size} 时，至少需要 {subgroup_size * 2} 个数据点"
+            )
+
+        # 计算子组内极差
+        subgroups = arr[: n_subgroups * subgroup_size].reshape(-1, subgroup_size)
+        ranges = np.ptp(subgroups, axis=1)
+        bar_R = np.mean(ranges)
+        d2 = _d2_constant(subgroup_size)
+        std_within = float(bar_R / d2)
+
+    else:  # subgroup_size == 1
+        # 方法 B：I-MR（移动极差）
+        mode = "cpk_individual"
+
+        if n < 2:
+            raise ValueError("I-MR 方法至少需要 2 个数据点")
+
+        moving_ranges = np.abs(np.diff(arr))
+        bar_MR = np.mean(moving_ranges)
+        d2_mr = 1.128
+        std_within = float(bar_MR / d2_mr)
+        n_subgroups = max(1, n - 1)
+
+    # 2. 计算三个指标
+    # ========================================================================
     cp = _calc_cp(usl, lsl, std_within)
     cpk = _calc_cpk(mean, usl, lsl, std_within)
     pp = _calc_cp(usl, lsl, std_overall)
     ppk = _calc_cpk(mean, usl, lsl, std_overall)
-    cmk = _calc_cpk(mean, usl, lsl, std_within)  # 计算方式与 Cpk 相同
+    cmk = _calc_cpk(mean, usl, lsl, std_overall)  # Cmk 用全样本标准差
 
-    # 计算超出规格的百分比
-    pct_above = (
-        float(1 - stats.norm.cdf(usl, loc=mean, scale=std_overall))
-        if usl is not None
-        else 0.0
-    )
-    pct_below = (
-        float(stats.norm.cdf(lsl, loc=mean, scale=std_overall))
-        if lsl is not None
-        else 0.0
-    )
+    # 3. 计算超出规格的百分比
+    # ========================================================================
+    pct_above = _calc_pct_above(usl, mean, std_overall)
+    pct_below = _calc_pct_below(lsl, mean, std_overall)
 
     return CapabilityResult(
         mean=mean,
@@ -276,23 +222,18 @@ def calculate_capability(
         pct_below_lsl=pct_below,
         pct_total_out=pct_above + pct_below,
         sample_size=n,
-        num_subgroups=num_subgroups,
+        num_subgroups=n_subgroups,
         analysis_mode=mode,
     )
 
 
+# ============================================================================
+# 辅助函数
+# ============================================================================
+
 def _calc_cp(usl: float | None, lsl: float | None, sigma: float) -> float:
-    """计算 Cp 或 Pp（不考虑中心偏移的双侧指数）。
-    
-    参数:
-        usl: 规格上限
-        lsl: 规格下限
-        sigma: 标准差（短期或整体）
-        
-    返回:
-        Cp/Pp 值（如果双侧限制不可用则为 0.0）
-    """
-    if sigma == 0:
+    """计算 Cp 或 Pp（不考虑中心偏移）。"""
+    if sigma == 0 or sigma is None:
         return 0.0
     if usl is not None and lsl is not None:
         return (usl - lsl) / (6 * sigma)
@@ -302,51 +243,40 @@ def _calc_cp(usl: float | None, lsl: float | None, sigma: float) -> float:
 def _calc_cpk(
     mean: float, usl: float | None, lsl: float | None, sigma: float
 ) -> float:
-    """计算 Cpk 或 Ppk（考虑中心偏移的指数）。
-    
-    取上限和下限能力值的较小者，以考虑均值偏移。
-    
-    参数:
-        mean: 过程均值
-        usl: 规格上限
-        lsl: 规格下限
-        sigma: 标准差（短期或整体）
-        
-    返回:
-        Cpk/Ppk 值（考虑了均值中心化）
-    """
-    if sigma == 0:
+    """计算 Cpk、Ppk 或 Cmk（考虑中心偏移）。"""
+    if sigma == 0 or sigma is None:
         return 0.0
     cpu = (usl - mean) / (3 * sigma) if usl is not None else float("inf")
     cpl = (mean - lsl) / (3 * sigma) if lsl is not None else float("inf")
     return min(cpu, cpl)
 
 
+def _calc_pct_above(usl: float | None, mean: float, sigma: float) -> float:
+    """计算超过 USL 的百分比。"""
+    if usl is None:
+        return 0.0
+    return float(1 - stats.norm.cdf(usl, loc=mean, scale=sigma))
+
+
+def _calc_pct_below(lsl: float | None, mean: float, sigma: float) -> float:
+    """计算低于 LSL 的百分比。"""
+    if lsl is None:
+        return 0.0
+    return float(stats.norm.cdf(lsl, loc=mean, scale=sigma))
+
+
 def _d2_constant(n: int) -> float:
-    """返回子组大小为 n 时的 d2 常数 (Xbar-R 控制图)。
-    
-    d2 常数用于将平均极差转换为标准差估计值：
-    σ = R̄ / d2
-    
-    参数:
-        n: 子组大小 (2-10)
-        
-    返回:
-        d2 常数值（对于 n > 10，使用公式 d2(n) ≈ sqrt(pi * n / (2n - 1)) 计算）
-    """
+    """返回子组大小为 n 时的 d2 常数。"""
     d2_table = {
-        2: 1.128,
-        3: 1.693,
-        4: 2.059,
-        5: 2.326,
-        6: 2.534,
-        7: 2.704,
-        8: 2.847,
-        9: 2.970,
-        10: 3.078,
+        2: 1.128, 3: 1.693, 4: 2.059, 5: 2.326, 6: 2.534,
+        7: 2.704, 8: 2.847, 9: 2.970, 10: 3.078,
+        # 补充大子组查表值
+        11: 3.173, 12: 3.258, 13: 3.336, 14: 3.407, 15: 3.472,
+        16: 3.532, 17: 3.588, 18: 3.640, 19: 3.689, 20: 3.735, 
+        21: 3.778, 22: 3.819, 23: 3.858, 24: 3.895, 25: 3.931
     }
     
     if n in d2_table:
         return d2_table[n]
-    else:
-        return math.sqrt((math.pi * n) / (2 * n - 1))
+    elif n > 25:
+        raise ValueError(f"子组大小 {n} 过大。当 n > 25 时，极差法失效，请重新评估抽样方案。")

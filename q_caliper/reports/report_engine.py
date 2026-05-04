@@ -141,6 +141,7 @@ def generate_cpk_report(
             "均值": f"{cpk_result.mean:.4f}",
             "Cpk": f"{cpk_result.cpk:.4f}",
             "Ppk": f"{cpk_result.ppk:.4f}",
+            "Cmk": f"{cpk_result.cmk:.4f}",
             "USL": str(cpk_result.usl) if cpk_result.usl else "未设置",
             "LSL": str(cpk_result.lsl) if cpk_result.lsl else "未设置",
             "总超规格比例": f"{cpk_result.pct_total_out:.4%}",
@@ -154,6 +155,7 @@ def generate_cpk_report(
                     ["Cpk", f"{cpk_result.cpk:.4f}"],
                     ["Pp", f"{cpk_result.pp:.4f}"],
                     ["Ppk", f"{cpk_result.ppk:.4f}"],
+                    ["Cmk", f"{cpk_result.cmk:.4f}"],
                 ],
             }
         ],

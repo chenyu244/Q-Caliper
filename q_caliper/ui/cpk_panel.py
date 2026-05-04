@@ -207,6 +207,7 @@ class ResultsTable(CardWidget):
             ("Cpk", f"{cpk_result.cpk:.4f}"),
             ("Pp", f"{cpk_result.pp:.4f}"),
             ("Ppk", f"{cpk_result.ppk:.4f}"),
+            ("Cmk", f"{cpk_result.cmk:.4f}"),
             ("USL", f"{cpk_result.usl}" if cpk_result.usl else "未设置"),
             ("LSL", f"{cpk_result.lsl}" if cpk_result.lsl else "未设置"),
             ("超 USL 比例", f"{cpk_result.pct_above_usl:.4%}"),
