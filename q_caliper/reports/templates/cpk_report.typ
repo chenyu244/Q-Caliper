@@ -1,73 +1,53 @@
 // Q-Caliper Cpk Report Template
-// Variables: {{COMPANY}}, {{TITLE}}, {{AUTHOR}}, {{DATE}}, {{MODULE}},
-//            {{SUMMARY_ROWS}}, {{TABLES}}, {{CHARTS}}
 
-#set document(title: "{{TITLE}}", author: "{{COMPANY}}")
-#set page(paper: "a4", margin: (top: 2.5cm, bottom: 2cm, left: 2cm, right: 2cm))
-#set text(font: ("Microsoft YaHei", "SimHei", "Noto Sans CJK SC"), size: 10pt)
-#set heading(numbering: "1.1")
+#import "template.typ": project
 
-// Cover
-#align(center)[
-  #v(3cm)
-  #text(size: 24pt, weight: "bold")[Cpk 过程能力分析报告]
-  #v(1cm)
-  #text(size: 14pt, fill: gray)[{{COMPANY}}]
-  #v(0.5cm)
-  #text(size: 10pt)[{{DATE}}]
-  #if "{{AUTHOR}}" != "" [
-    #text(size: 10pt)[编制: {{AUTHOR}}]
-  ]
-]
-
-#pagebreak()
-
-// Summary
-= 分析摘要
-
-#table(
-  columns: (auto, auto),
-  inset: 8pt,
-  stroke: 0.5pt,
-  align: (left, left),
-  table.header([指标], [值]),
-  {{SUMMARY_ROWS}}
+#show: project.with(
+  title: "正态性与过程能力深度分析报告",
+  subtitle: "由 Q-Caliper 自动生成 | 模块: {{MODULE}}"
 )
 
-// Capability Indices
-= 过程能力指数
+= 1. 基础数据总结
 
-Cpk 是衡量过程满足规格要求能力的核心指标:
+本章节汇总了输入数据的基本统计特征及规格参数。
 
-- *Cp* >= 1.33: 过程能力良好
-- *Cpk* >= 1.33: 过程实际能力良好 (考虑均值偏移)
-- *Ppk*: 使用总体标准差的过程性能指数
+{{TABLE_BASIC}}
 
-{{TABLES}}
+= 2. 正态性检验
 
-// Charts
-= 直方图与分布
+过程能力分析依赖于数据服从正态分布的假设。我们使用了标准的统计学检验方法对数据分布形态进行量化判定。
+
+{{TABLE_NORM}}
+
+= 3. 统计图表与数据分布
+
+直方图直观展示了数据的实际分布情况，并叠加了组内（短期，绿色虚线）和整体（长期，红色实线）的正态拟合曲线。
 
 {{CHARTS}}
 
-// Conclusion
-= 结论
+= 4. 过程能力与性能表现
 
-由以上分析结果可得:
+过程能力指数用于量化过程满足规格要求的能力。根据数据的组内变异和整体变异，我们分别评估了其短期潜力和长期实际表现：
 
-#let cpk_val = {{SUMMARY_ROWS}}
+{{TABLE_CAP}}
 
-#table(
-  columns: (auto, auto),
-  inset: 8pt,
-  stroke: 0.5pt,
-  table.header([Cpk 范围], [判定]),
-  [>= 1.67], [优秀 — 过程能力充足],
-  [>= 1.33], [良好 — 过程能力满足要求],
-  [>= 1.00], [可接受 — 过程能力勉强满足],
-  [< 1.00], [不可接受 — 需改进过程],
-)
+*过程预估不良率 (PPM - 每百万件缺陷数):*
 
-#v(1fr)
-#line(length: 100%, stroke: 0.5pt)
-#text(size: 8pt, fill: gray)[由 Q-Caliper v1.0 自动生成]
+{{TABLE_PPM}}
+
+= 5. 指标诊断与原理解释
+
+为了帮助您更好地理解上述指标，以下是 Q-Caliper 算法引擎使用的计算逻辑及工程诊断指南：
+
+== 5.1 正态性检验说明
+报告采用了 *Shapiro-Wilk* (样本 < 5000) 或 *Anderson-Darling* (样本 >= 5000) 算法进行严格的正态性检验。若“结论”为“非正态分布”，这通常意味着数据中存在特殊变异（如混入了不同批次、测量误差或存在明显偏态）。在非正态分布下，传统的 Cpk 指数和基于正态假设预测的 PPM 可能无法准确反映真实的越差风险，建议优先排查生产过程中的特殊干扰项。
+
+== 5.2 能力指数释义
+- *Cmk (设备能力指数)*：基于全样本标准差计算，通常用于设备验收阶段极短时间内连续产出的样本。它纯粹反映设备固有的机械精度和重复性。
+- *Cpk (过程能力指数 - 短期)*：使用*子组极差法*估算组内标准差。这种估算方法刻意排除了随时间发生的均值漂移。它代表在排除环境和时间干扰后，过程所能达到的“最佳潜能”。
+- *Ppk (过程性能指数 - 长期)*：使用*全样本标准差*。这其中不仅包含了组内固有的随机变异，还包含了所有随着时间推移发生的系统性漂移（如刀具磨损、昼夜温差等）。它代表了过程长期的真实表现。
+
+== 5.3 漂移诊断规则 (Cpk vs Ppk)
+深入对比 Cpk 与 Ppk 的大小，是进行过程问题诊断的核心手段：
++ *过程稳定 ($C_"pk" approx P_"pk"$)*：当两者差值极小（通常 $< 0.1$）时，说明过程长期非常稳定，没有发生明显的系统性均值漂移。
++ *过程漂移 ($C_"pk" > P_"pk"$)*：如果 Cpk 明显大于 Ppk，说明设备的短期精度是足够的（Cpk 好），但由于缺乏有效的工艺控制，随着时间推移发生了严重的*均值漂移*。此时应寻找并消除环境温差、换刀、人员换班等时间依赖因素，通过工艺稳定性改善将 Ppk 提升至 Cpk 的水平。

@@ -137,6 +137,20 @@ class GrrInputCard(CardWidget):
         self.operator_combo.addItems(cols)
         self.part_combo.addItems(cols)
 
+    def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
+        """Pre-select columns based on roles from Data Center."""
+        if "测量值" in mapping and mapping["测量值"]:
+            idx = self.measure_combo.findText(mapping["测量值"][0])
+            if idx >= 0: self.measure_combo.setCurrentIndex(idx)
+        
+        if "操作者" in mapping and mapping["操作者"]:
+            idx = self.operator_combo.findText(mapping["操作者"][0])
+            if idx >= 0: self.operator_combo.setCurrentIndex(idx)
+            
+        if "零件" in mapping and mapping["零件"]:
+            idx = self.part_combo.findText(mapping["零件"][0])
+            if idx >= 0: self.part_combo.setCurrentIndex(idx)
+
     def _on_calculate(self) -> None:
         if self.df is None:
             InfoBar.warning("提示", "请先在数据中心加载数据文件", parent=self)
@@ -484,6 +498,9 @@ class GrrPanelWidget(QWidget):
     def set_dataframe(self, df: pd.DataFrame, filename: str) -> None:
         self.df = df
         self.input_card.set_dataframe(df)
+
+    def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
+        self.input_card.set_selected_columns(mapping)
 
     def show_results(self, result, part_names: list[str], operator_names: list[str]) -> None:
         self.results_table.show_results(result)

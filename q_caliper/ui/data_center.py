@@ -64,8 +64,8 @@ class DataPreviewWidget(QWidget):
         self.sync_btn.hide() # Hidden until data is loaded
         header_row.addWidget(self.sync_btn)
 
-        self.smart_btn = PrimaryPushButton("智能分析: CPK")
-        self.smart_btn.setIcon(FluentIcon.CARE_RIGHT_SOLID)
+        self.smart_btn = PrimaryPushButton("分析推荐")
+        self.smart_btn.setIcon(FluentIcon.INFO)
         self.smart_btn.clicked.connect(self._goto_analysis)
         self.smart_btn.hide() # Hidden until data is loaded
         header_row.addWidget(self.smart_btn)
@@ -172,6 +172,7 @@ class DataPreviewWidget(QWidget):
             
             # 修改角色只同步状态，静默处理
             self._sync_file(silent=True)
+            self._update_smart_btn()
             InfoBar.success("角色已更新", f"列 {logical_index} 的角色已更新为 '{new_role}'", parent=self, duration=2000)
 
     def _on_item_changed(self, item: QTableWidgetItem) -> None:
@@ -235,9 +236,52 @@ class DataPreviewWidget(QWidget):
         return self._full_df if self._full_df is not None else pd.DataFrame()
 
     def _goto_analysis(self) -> None:
+        mapping = self.get_role_mapping()
         main_win = self.window()
-        if hasattr(main_win, "cpk_panel") and hasattr(main_win, "switchTo"):
-            main_win.switchTo(main_win.cpk_panel)
+        
+        target_panel = None
+        if all(r in mapping for r in ["测量值", "操作者", "零件"]):
+            target_panel = getattr(main_win, "grr_panel", None)
+        elif "测量值" in mapping:
+            target_panel = getattr(main_win, "cpk_panel", None)
+        
+        if target_panel and hasattr(main_win, "switchTo"):
+            if hasattr(target_panel, "set_selected_columns"):
+                target_panel.set_selected_columns(mapping)
+            main_win.switchTo(target_panel)
+        else:
+            InfoBar.warning("分析推荐", "请先通过双击表头为列分配角色（如：测量值、零件、操作者）", parent=self)
+
+    def get_role_mapping(self) -> dict[str, list[str]]:
+        """Extract mapping of roles to column names from the table."""
+        mapping = {}
+        for j in range(self.table.columnCount()):
+            header_item = self.table.horizontalHeaderItem(j)
+            if not header_item:
+                continue
+            role = header_item.text()
+            # The actual column name is in the 0-th row of the table
+            col_item = self.table.item(0, j)
+            if not col_item:
+                continue
+            col_name = col_item.text()
+            if role not in mapping:
+                mapping[role] = []
+            mapping[role].append(col_name)
+        return mapping
+
+    def _update_smart_btn(self) -> None:
+        """Update smart analysis button text based on current roles."""
+        mapping = self.get_role_mapping()
+        if all(r in mapping for r in ["测量值", "操作者", "零件"]):
+            self.smart_btn.setText("智能推荐: GRR")
+            self.smart_btn.setIcon(FluentIcon.MARKET)
+        elif "测量值" in mapping:
+            self.smart_btn.setText("智能推荐: 正态分析")
+            self.smart_btn.setIcon(FluentIcon.CARE_RIGHT_SOLID)
+        else:
+            self.smart_btn.setText("分析推荐")
+            self.smart_btn.setIcon(FluentIcon.INFO)
 
     def load_dataframe(self, df: pd.DataFrame, filename: str) -> None:
         self._loading = True
@@ -293,6 +337,7 @@ class DataPreviewWidget(QWidget):
         self._loading = False
         self.sync_btn.show()
         self.smart_btn.show()
+        self._update_smart_btn()
 
 
 

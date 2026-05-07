@@ -1,4 +1,4 @@
-"""Cpk Analysis Panel — column mapping, calculation, and histogram."""
+"""Normal Analysis Panel — histogram, normality test, and capability analysis."""
 
 # isort: skip_file
 from __future__ import annotations
@@ -8,13 +8,16 @@ matplotlib.use("QtAgg")
 import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QSplitter,
@@ -31,6 +34,7 @@ from qfluentwidgets import (
     FluentIcon,
     InfoBar,
     PrimaryPushButton,
+    PushButton,
     StrongBodyLabel,
     TitleLabel,
 )
@@ -40,17 +44,9 @@ from q_caliper.core.cpk import calculate_capability, normality_test
 
 def _setup_matplotlib_font() -> None:
     """Configure matplotlib to use a CJK font for Chinese labels."""
-    candidates = [
-        "Microsoft YaHei", "SimHei", "SimSun", "NSimSun",
-        "FangSong", "KaiTi", "Microsoft JhengHei",
-        "WenQuanYi Micro Hei", "Noto Sans CJK SC",
-    ]
-    available = {f.name for f in fm.fontManager.ttflist}
-    for name in candidates:
-        if name in available:
-            matplotlib.rcParams["font.sans-serif"] = [name]
-            matplotlib.rcParams["axes.unicode_minus"] = False
-            return
+    matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "sans-serif"]
+    matplotlib.rcParams["font.family"] = "sans-serif"
+    matplotlib.rcParams["axes.unicode_minus"] = False
 
 
 _setup_matplotlib_font()
@@ -68,55 +64,156 @@ class ColumnMappingCard(CardWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(16, 12, 16, 12)
 
-        header = StrongBodyLabel("列映射")
-        header.setStyleSheet("font-size: 14px; margin-bottom: 6px;")
-        layout.addWidget(header)
+        header_row = QHBoxLayout()
+        header = StrongBodyLabel("分析参数设置")
+        header.setStyleSheet("font-size: 14px;")
+        header_row.addWidget(header)
+        header_row.addStretch()
+        layout.addLayout(header_row)
 
-        form = QFormLayout()
-        form.setSpacing(8)
+        form_layout = QGridLayout()
+        form_layout.setVerticalSpacing(8)
+        form_layout.setHorizontalSpacing(20)
 
+        # Row 0: Labels
+        form_layout.addWidget(QLabel("测量数据列:"), 0, 0)
+        
+        spec_lbl_layout = QHBoxLayout()
+        spec_lbl_layout.setContentsMargins(0, 0, 0, 0)
+        spec_lbl_layout.addWidget(QLabel("规格限 (LSL / USL):"))
+        self.magic_btn = PushButton("智能推荐")
+        self.magic_btn.setFixedHeight(22)
+        self.magic_btn.setStyleSheet("font-size: 11px; padding: 0 5px;")
+        self.magic_btn.clicked.connect(self._show_spec_menu)
+        spec_lbl_layout.addWidget(self.magic_btn)
+        spec_lbl_layout.addStretch()
+        form_layout.addLayout(spec_lbl_layout, 0, 1)
+
+        sg_lbl_layout = QHBoxLayout()
+        sg_lbl_layout.setContentsMargins(0, 0, 0, 0)
+        sg_lbl_layout.addWidget(QLabel("子组大小:"))
+        self.sg_help = PushButton("")
+        self.sg_help.setIcon(FluentIcon.QUESTION)
+        self.sg_help.setFixedSize(20, 20)
+        self.sg_help.setToolTip(
+            "推荐原则：\n"
+            "1. 子组内样本应在短时间内产生，子组间应有时间差。\n"
+            "2. 默认推荐 n=5，即使数据连续，人为分组也能诊断过程漂移。\n"
+            "3. Cpk (短期潜力) 依赖子组变异，Ppk (长期性能) 依赖全变异。"
+        )
+        sg_lbl_layout.addWidget(self.sg_help)
+        sg_lbl_layout.addStretch()
+        form_layout.addLayout(sg_lbl_layout, 0, 2)
+
+        # Row 1: Controls
         self.measure_combo = QComboBox()
         self.measure_combo.setMinimumWidth(180)
-        self.measure_combo.setPlaceholderText("-- 选择测量数据列 --")
-        form.addRow("测量列:", self.measure_combo)
+        self.measure_combo.setFixedHeight(32)
+        self.measure_combo.setPlaceholderText("-- 选择列 --")
+        form_layout.addWidget(self.measure_combo, 1, 0)
 
-        spec_row = QHBoxLayout()
-        self.usl_spin = QDoubleSpinBox()
-        self.usl_spin.setRange(-1e12, 1e12)
-        self.usl_spin.setDecimals(4)
-        self.usl_spin.setSpecialValueText("无")
-        self.usl_spin.setValue(-1e12)
-        spec_row.addWidget(QLabel("USL:"))
-        spec_row.addWidget(self.usl_spin)
-
+        spec_input_row = QHBoxLayout()
+        spec_input_row.setContentsMargins(0, 0, 0, 0)
         self.lsl_spin = QDoubleSpinBox()
         self.lsl_spin.setRange(-1e12, 1e12)
         self.lsl_spin.setDecimals(4)
         self.lsl_spin.setSpecialValueText("无")
         self.lsl_spin.setValue(-1e12)
-        spec_row.addWidget(QLabel("LSL:"))
-        spec_row.addWidget(self.lsl_spin)
-        form.addRow("规格限:", spec_row)
+        self.lsl_spin.setFixedHeight(32)
+        spec_input_row.addWidget(self.lsl_spin)
+
+        self.usl_spin = QDoubleSpinBox()
+        self.usl_spin.setRange(-1e12, 1e12)
+        self.usl_spin.setDecimals(4)
+        self.usl_spin.setSpecialValueText("无")
+        self.usl_spin.setValue(-1e12)
+        self.usl_spin.setFixedHeight(32)
+        spec_input_row.addWidget(self.usl_spin)
+        form_layout.addLayout(spec_input_row, 1, 1)
 
         self.subgroup_spin = QDoubleSpinBox()
         self.subgroup_spin.setRange(1, 100)
         self.subgroup_spin.setDecimals(0)
-        self.subgroup_spin.setValue(1)
-        form.addRow("子组大小:", self.subgroup_spin)
+        self.subgroup_spin.setValue(5)
+        self.subgroup_spin.setFixedHeight(32)
+        form_layout.addWidget(self.subgroup_spin, 1, 2)
 
-        layout.addLayout(form)
-
-        self.calc_btn = PrimaryPushButton("计算 Cpk")
+        # Buttons on the right
+        btn_layout = QVBoxLayout()
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(8)
+        self.calc_btn = PrimaryPushButton("执行分析")
         self.calc_btn.setIcon(FluentIcon.PLAY)
-        self.calc_btn.setFixedHeight(36)
+        self.calc_btn.setFixedWidth(120)
+        self.calc_btn.setFixedHeight(32)
         self.calc_btn.clicked.connect(self._on_calculate)
-        layout.addWidget(self.calc_btn)
+        btn_layout.addWidget(self.calc_btn)
+        
+        self.report_btn = PushButton("导出 PDF")
+        self.report_btn.setIcon(FluentIcon.PRINT)
+        self.report_btn.setFixedWidth(120)
+        self.report_btn.setFixedHeight(32)
+        self.report_btn.clicked.connect(self._on_export_pdf)
+        self.report_btn.setEnabled(False)
+        btn_layout.addWidget(self.report_btn)
+        
+        form_layout.addLayout(btn_layout, 0, 3, 2, 1, Qt.AlignmentFlag.AlignVCenter)
+        form_layout.setColumnStretch(1, 1)
+
+        layout.addLayout(form_layout)
+
+    def _show_spec_menu(self) -> None:
+        from qfluentwidgets import RoundMenu, Action
+        if self.df is None:
+            return
+            
+        col = self.measure_combo.currentText()
+        if not col:
+            return
+            
+        data = self.df[col].dropna().values
+        if len(data) == 0:
+            return
+            
+        mean = np.mean(data)
+        std = np.std(data, ddof=1)
+        
+        menu = RoundMenu(parent=self.magic_btn)
+        
+        actions = [
+            ("±3 Sigma (99.7%)", mean + 3*std, mean - 3*std),
+            ("±6 Sigma (精密)", mean + 6*std, mean - 6*std),
+            ("全范围 (Max/Min)", np.max(data), np.min(data)),
+            ("重置规格", -1e12, -1e12),
+        ]
+        
+        for text, usl, lsl in actions:
+            act = Action(text, self)
+            # 注意：triggered 信号会发送一个 bool 类型的 checked 参数，
+            # 如果不显式接收，它会覆盖 lambda 中的第一个默认参数 u
+            act.triggered.connect(lambda checked, u=usl, l=lsl, t=text: self._apply_spec(u, l, t))
+            menu.addAction(act)
+            
+        menu.exec(self.magic_btn.mapToGlobal(self.magic_btn.rect().bottomLeft()))
+
+    def _apply_spec(self, usl: float, lsl: float, text: str = "智能推荐") -> None:
+        self.usl_spin.setValue(usl)
+        self.lsl_spin.setValue(lsl)
+        self.magic_btn.setText(text)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df
         self.measure_combo.clear()
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         self.measure_combo.addItems([str(c) for c in numeric_cols])
+
+    def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
+        """Pre-select measurement column based on roles from Data Center."""
+        if "测量值" in mapping and mapping["测量值"]:
+            col = mapping["测量值"][0]
+            index = self.measure_combo.findText(col)
+            if index >= 0:
+                self.measure_combo.setCurrentIndex(index)
 
     def _on_calculate(self) -> None:
         if self.df is None:
@@ -138,17 +235,13 @@ class ColumnMappingCard(CardWidget):
         usl_val = None if usl <= -1e11 else usl
         lsl_val = None if lsl <= -1e11 else lsl
 
-        if usl_val is None and lsl_val is None:
-            InfoBar.warning("提示", "请至少设置一个规格限 (USL 或 LSL)", parent=self)
-            return
-
         sg_size = int(self.subgroup_spin.value())
 
         try:
             norm_result = normality_test(data)
             cpk_result = calculate_capability(data, usl_val, lsl_val, sg_size)
         except Exception as e:
-            InfoBar.error("计算错误", str(e), parent=self)
+            InfoBar.error("分析错误", str(e), parent=self)
             return
 
         parent = self.parent()
@@ -156,76 +249,33 @@ class ColumnMappingCard(CardWidget):
             parent = parent.parent()
         if isinstance(parent, CpkPanelWidget):
             parent.show_results(data, norm_result, cpk_result, col)
+            self.report_btn.setEnabled(True)
 
-
-class ResultsTable(CardWidget):
-    """Display Cpk/Ppk results in a styled table."""
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._setup_ui()
-
-    def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
-
-        header = StrongBodyLabel("分析结果")
-        header.setStyleSheet("font-size: 14px; margin-bottom: 6px;")
-        layout.addWidget(header)
-
-        self.table = QTableWidget()
-        self.table.setColumnCount(2)
-        self.table.setHorizontalHeaderLabels(["指标", "值"])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table.verticalHeader().setVisible(False)
-        self.table.setEditTriggers(QTableWidget.EditTrigger.NoEditTriggers)
-        self.table.setAlternatingRowColors(True)
-        self.table.setStyleSheet("""
-            QTableWidget {
-                border: 1px solid #e0e0e0;
-                border-radius: 6px;
-                background: white;
-                alternate-background-color: #f8f9fa;
-                font-size: 12px;
-            }
-            QHeaderView::section {
-                background: #f0f2f5;
-                border: none;
-                border-bottom: 2px solid #0078D4;
-                padding: 5px;
-                font-weight: bold;
-            }
-        """)
-        layout.addWidget(self.table)
-
-    def show_results(self, norm_result, cpk_result) -> None:
-        rows = [
-            ("均值 (Mean)", f"{cpk_result.mean:.4f}"),
-            ("组内标准差 (sigma_within)", f"{cpk_result.std_within:.4f}"),
-            ("总体标准差 (sigma_overall)", f"{cpk_result.std_overall:.4f}"),
-            ("Cp", f"{cpk_result.cp:.4f}"),
-            ("Cpk", f"{cpk_result.cpk:.4f}"),
-            ("Pp", f"{cpk_result.pp:.4f}"),
-            ("Ppk", f"{cpk_result.ppk:.4f}"),
-            ("Cmk", f"{cpk_result.cmk:.4f}"),
-            ("USL", f"{cpk_result.usl}" if cpk_result.usl else "未设置"),
-            ("LSL", f"{cpk_result.lsl}" if cpk_result.lsl else "未设置"),
-            ("超 USL 比例", f"{cpk_result.pct_above_usl:.4%}"),
-            ("低于 LSL 比例", f"{cpk_result.pct_below_lsl:.4%}"),
-            ("总超规格比例", f"{cpk_result.pct_total_out:.4%}"),
-            ("---", "---"),
-            ("正态性检验", norm_result.test_name),
-            ("检验统计量", f"{norm_result.statistic:.4f}"),
-            ("p 值", f"{norm_result.p_value:.4f}"),
-            ("正态性结论", "正态分布" if norm_result.is_normal else "非正态分布"),
-        ]
-
-        self.table.setRowCount(len(rows))
-        for i, (name, val) in enumerate(rows):
-            self.table.setItem(i, 0, QTableWidgetItem(name))
-            self.table.setItem(i, 1, QTableWidgetItem(str(val)))
-
-        self.table.resizeRowsToContents()
+    def _on_export_pdf(self) -> None:
+        from q_caliper.reports.report_engine import generate_cpk_report
+        from qfluentwidgets import MessageBox
+        
+        parent = self.parent()
+        while parent and not isinstance(parent, CpkPanelWidget):
+            parent = parent.parent()
+        
+        if not parent or parent.last_result is None:
+            return
+            
+        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "正态分析报告.pdf", "PDF 文件 (*.pdf)")
+        if not path:
+            return
+            
+        try:
+            # 使用绝对路径避免路径问题
+            tmp_img = str(Path("tmp_capability.png").resolve())
+            parent.histogram.figure.savefig(tmp_img, dpi=120)
+            
+            generate_cpk_report(path, parent.last_result, parent.last_norm, tmp_img)
+            InfoBar.success("导出成功", f"报告已保存至: {path}", parent=self, duration=5000)
+        except Exception as e:
+            # 使用 InfoBar 显示长效错误，不阻塞 UI 线程
+            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{str(e)}", parent=self, duration=-1)
 
 
 class HistogramWidget(CardWidget):
@@ -239,100 +289,121 @@ class HistogramWidget(CardWidget):
         layout = QVBoxLayout(self)
         layout.setContentsMargins(8, 8, 8, 8)
 
-        self.figure = Figure(figsize=(6, 4), dpi=100)
+        self.figure = Figure(figsize=(8, 6), dpi=100)
         self.figure.set_facecolor("white")
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self.canvas)
 
-    def plot(self, data: np.ndarray, cpk_result, col_name: str) -> None:
+    def plot(self, data: np.ndarray, norm_result, cpk_result, col_name: str) -> None:
         self.figure.clear()
-        ax = self.figure.add_subplot(111)
+        
+        # 调整布局留出右侧空间给统计框, 使用 1x2 布局
+        gs = self.figure.add_gridspec(1, 2, width_ratios=[4, 1.2], wspace=0.1)
+        ax = self.figure.add_subplot(gs[0])
 
+        # 1. 绘制直方图
         n_bins = min(50, max(10, len(data) // 5))
-        ax.hist(data, bins=n_bins, density=True, alpha=0.7, color="#4A90D9", edgecolor="white", linewidth=0.5, label="数据分布")
+        ax.hist(data, bins=n_bins, density=True, alpha=0.6, color="#4A90D9", edgecolor="white", linewidth=0.5, label="数据分布")
 
+        # 2. 绘制正态拟合
         xmin, xmax = ax.get_xlim()
         x = np.linspace(min(data.min(), xmin), max(data.max(), xmax), 300)
-        mean = cpk_result.mean
-        std = cpk_result.std_overall
-        if std > 0:
-            y = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
-            ax.plot(x, y, "r-", linewidth=1.2, label="正态拟合曲线")
+        
+        # 整体正态曲线 (实线)
+        y_overall = (1 / (cpk_result.std_overall * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - cpk_result.mean) / cpk_result.std_overall) ** 2)
+        ax.plot(x, y_overall, color="#E74C3C", linewidth=1.5, label="整体正态")
+        
+        # 组内正态曲线 (虚线)
+        y_within = (1 / (cpk_result.std_within * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - cpk_result.mean) / cpk_result.std_within) ** 2)
+        ax.plot(x, y_within, color="#27AE60", linestyle="--", linewidth=1.5, label="组内正态")
 
+        # 3. 规格限
         if cpk_result.usl is not None:
-            ax.axvline(cpk_result.usl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"USL = {cpk_result.usl}")
+            ax.axvline(cpk_result.usl, color="#E67E22", linestyle="-", linewidth=2)
+            ax.text(cpk_result.usl, ax.get_ylim()[1]*1.02, "USL", color="#E67E22", ha="center", fontweight="bold")
         if cpk_result.lsl is not None:
-            ax.axvline(cpk_result.lsl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"LSL = {cpk_result.lsl}")
+            ax.axvline(cpk_result.lsl, color="#E67E22", linestyle="-", linewidth=2)
+            ax.text(cpk_result.lsl, ax.get_ylim()[1]*1.02, "LSL", color="#E67E22", ha="center", fontweight="bold")
 
-        ax.axvline(mean, color="#2ECC71", linestyle="-", linewidth=1.2, label=f"均值 = {mean:.3f}")
-
-        cpk_val = cpk_result.cpk
-        color = "#27AE60" if cpk_val >= 1.33 else "#E67E22" if cpk_val >= 1.0 else "#E74C3C"
-        ax.text(
-            0.02, 0.95, f"Cpk = {cpk_val:.3f}",
-            transform=ax.transAxes, fontsize=14, fontweight="bold",
-            color="white", backgroundcolor=color, verticalalignment="top",
-            bbox=dict(boxstyle="round,pad=0.4", facecolor=color, alpha=0.9),
-        )
-
-        ax.set_xlabel(col_name, fontsize=11)
-        ax.set_ylabel("密度", fontsize=11)
-        ax.set_title(f"{col_name} 直方图", fontsize=13, fontweight="bold")
-        ax.legend(loc="upper right", fontsize=9)
-        ax.grid(True, alpha=0.3)
+        ax.set_title(f"{col_name} 过程能力报告", fontsize=14, fontweight="bold", pad=20)
+        ax.grid(True, alpha=0.2)
+        ax.legend(loc="upper left", fontsize=9)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
+        
+        # 4. 统计信息文本框 (右侧)
+        ax_stats = self.figure.add_subplot(gs[1])
+        ax_stats.axis("off")
+        
+        stats_text = (
+            f"过程数据\n"
+            f"LSL: {cpk_result.lsl if cpk_result.lsl is not None else '无':>8}\n"
+            f"目标: {'-':>8}\n"
+            f"USL: {cpk_result.usl if cpk_result.usl is not None else '无':>8}\n"
+            f"样本均值: {cpk_result.mean:.4f}\n"
+            f"样本 N: {cpk_result.sample_size}\n"
+            f"标准差(整体): {cpk_result.std_overall:.4f}\n"
+            f"标准差(组内): {cpk_result.std_within:.4f}\n"
+        )
+        
+        if cpk_result.cpk is not None:
+            stats_text += (
+                f"\n能力指标 (组内 / 整体)\n"
+                f"Cp : {cpk_result.cp:<5.2f}    Pp : {cpk_result.pp:<5.2f}\n"
+                f"Cpk: {cpk_result.cpk:<5.2f}    Ppk: {cpk_result.ppk:<5.2f}\n"
+            )
+            
+        ax_stats.text(0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.6)
 
         self.figure.tight_layout()
         self.canvas.draw()
 
 
+
 class CpkPanelWidget(QWidget):
-    """Cpk analysis page with column mapping, results, and histogram."""
+    """Normal analysis page with column mapping and professional histogram."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("cpk_panel")
         self.df: pd.DataFrame | None = None
+        self.last_result = None
+        self.last_norm = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 10, 20, 20)
+        main_layout.setSpacing(15)
 
-        header = TitleLabel("Cpk 过程能力分析")
+        header_row = QHBoxLayout()
+        header = TitleLabel("正态性与过程能力分析")
         header.setStyleSheet("font-size: 20px; font-weight: bold;")
-        main_layout.addWidget(header)
+        header_row.addWidget(header)
+        header_row.addStretch()
+        main_layout.addLayout(header_row)
 
-        desc = BodyLabel("选择测量数据列和规格限, 计算 Cpk/Ppk 并生成直方图")
-        desc.setStyleSheet("color: #666; margin-bottom: 8px;")
+        desc = BodyLabel("执行正态性检验、直方图拟合及 Cpk/Ppk 能力评估")
+        desc.setStyleSheet("color: #666; margin-bottom: 2px;")
         main_layout.addWidget(desc)
 
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
-        left_layout.setContentsMargins(0, 0, 0, 0)
+        # 顶部参数区 (横向排列)
         self.mapping_card = ColumnMappingCard(self)
-        left_layout.addWidget(self.mapping_card)
-        self.results_table = ResultsTable(self)
-        left_layout.addWidget(self.results_table, 1)
+        main_layout.addWidget(self.mapping_card)
 
+        # 底部图表区
         self.histogram = HistogramWidget(self)
-
-        splitter.addWidget(left_panel)
-        splitter.addWidget(self.histogram)
-        splitter.setSizes([380, 520])
-        splitter.setStretchFactor(0, 0)
-        splitter.setStretchFactor(1, 1)
-
-        main_layout.addWidget(splitter, 1)
+        main_layout.addWidget(self.histogram, 1)
 
     def set_dataframe(self, df: pd.DataFrame, filename: str) -> None:
         self.df = df
         self.mapping_card.set_dataframe(df)
 
+    def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
+        self.mapping_card.set_selected_columns(mapping)
+
     def show_results(self, data, norm_result, cpk_result, col_name: str) -> None:
-        self.results_table.show_results(norm_result, cpk_result)
-        self.histogram.plot(data, cpk_result, col_name)
+        self.last_result = cpk_result
+        self.last_norm = norm_result
+        self.histogram.plot(data, norm_result, cpk_result, col_name)

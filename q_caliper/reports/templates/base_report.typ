@@ -1,27 +1,11 @@
 // Q-Caliper Base Report Template
-// Variables: {{COMPANY}}, {{TITLE}}, {{AUTHOR}}, {{DATE}}, {{MODULE}},
-//            {{SUMMARY_ROWS}}, {{TABLES}}, {{CHARTS}}
 
-#set document(title: "{{TITLE}}", author: "{{COMPANY}}")
-#set page(paper: "a4", margin: (top: 2.5cm, bottom: 2cm, left: 2cm, right: 2cm))
-#set text(font: ("Microsoft YaHei", "SimHei", "Noto Sans CJK SC"), size: 10pt)
-#set heading(numbering: "1.1")
+#import "template.typ": project
 
-// Cover
-#align(center)[
-  #v(3cm)
-  #text(size: 24pt, weight: "bold")[{{TITLE}}]
-  #v(1cm)
-  #text(size: 14pt, fill: gray)[{{COMPANY}}]
-  #v(0.5cm)
-  #text(size: 11pt)[模块: {{MODULE}}]
-  #v(0.5cm)
-  #text(size: 10pt)[{{DATE}}]
-  #v(0.5cm)
-  #text(size: 10pt)[{{AUTHOR}}]
-]
-
-#pagebreak()
+#show: project.with(
+  title: "{{TITLE}}",
+  subtitle: "由 Q-Caliper 自动生成 | 模块: {{MODULE}}"
+)
 
 // Summary
 = 分析摘要
@@ -44,8 +28,3 @@
 = 图表
 
 {{CHARTS}}
-
-// Footer
-#v(1fr)
-#line(length: 100%, stroke: 0.5pt)
-#text(size: 8pt, fill: gray)[由 Q-Caliper 自动生成]

@@ -51,16 +51,20 @@ class CapabilityResult:
         cp, pp: 不考虑中心偏移的指数
         
         analysis_mode: 说明 Cpk 的计算方法 ("cpk_grouped" 或 "cpk_individual")
-        num_subgroups: 子组数量（cpk 计算中的子组数，或 MR 的对数）
+        num_subgroups: 子组数量
+        
+        ppm_observed_total: 观测到的总 PPM
+        ppm_expected_within_total: 组内预期的总 PPM
+        ppm_expected_overall_total: 整体预期的总 PPM
     """
     mean: float
     std_within: float
     std_overall: float
-    cp: float
-    cpk: float
-    pp: float
-    ppk: float
-    cmk: float
+    cp: float | None
+    cpk: float | None
+    pp: float | None
+    ppk: float | None
+    cmk: float | None
     usl: float | None
     lsl: float | None
     pct_above_usl: float
@@ -68,7 +72,10 @@ class CapabilityResult:
     pct_total_out: float
     sample_size: int
     num_subgroups: int
-    analysis_mode: str  # "cpk_grouped" 或 "cpk_individual"
+    analysis_mode: str
+    ppm_observed_total: float
+    ppm_expected_within_total: float
+    ppm_expected_overall_total: float
 
 
 def normality_test(data: npt.ArrayLike, alpha: float = 0.05) -> NormalityResult:
@@ -106,43 +113,7 @@ def calculate_capability(
     subgroup_size: int | None = None,
     analysis_type: Literal["auto", "manual"] = "auto",
 ) -> CapabilityResult:
-    """计算 Cpk/Cmk/Ppk 过程能力指数。
-
-    设计理念：智能自动化，一次计算返回三个指标
-    
-    在 auto 模式下（推荐）：
-    1. 根据 subgroup_size 自动判断 Cpk 的计算方法
-    2. 同时计算 Cmk 和 Ppk
-    3. 返回所有三个指标，用户可以进行对比诊断
-    
-    参数:
-        data: 测量数据数组
-        usl: 规格上限（可选）
-        lsl: 规格下限（可选）
-        subgroup_size: 子组大小
-                      - > 1: 使用 Xbar-R 方法计算 Cpk
-                      - = 1: 使用 I-MR 方法计算 Cpk
-                      - None: 默认为 1（无法分组）
-        analysis_type: "auto" (推荐) 或 "manual"
-                      - auto: 自动计算所有三个指标
-                      - manual: 仅计算指定的指标（需要用户知道自己要什么）
-
-    返回:
-        CapabilityResult 包含 cpk、cmk、ppk 三个指标，用户可以同时对比
-
-    使用示例：
-        >>> result = calculate_capability(data, usl=100.5, lsl=99.5, subgroup_size=5)
-        >>> print(f"Cpk: {result.cpk:.3f}")  # 自动用 Xbar-R 方法
-        >>> print(f"Cmk: {result.cmk:.3f}")  # 设备能力
-        >>> print(f"Ppk: {result.ppk:.3f}")  # 过程性能
-        >>> 
-        >>> # 对比诊断
-        >>> if result.cpk > result.ppk + 0.15:
-        ...     print("过程存在漂移")
-    """
-    if usl is None and lsl is None:
-        raise ValueError("必须至少指定 USL 或 LSL 其中之一")
-
+    """计算 Cpk/Cmk/Ppk 过程能力指数。"""
     arr = np.asarray(data, dtype=float)
     arr = arr[~np.isnan(arr)]
     n = len(arr)
@@ -158,54 +129,52 @@ def calculate_capability(
     if subgroup_size is None:
         subgroup_size = 1
 
-    # ========================================================================
-    # 统一逻辑：计算所有三个指标
-    # ========================================================================
-
     # 1. 计算 std_within（用于 Cpk）
-    # ========================================================================
     if subgroup_size > 1:
-        # 方法 A：Xbar-R（有理子组）
         mode = "cpk_grouped"
         n_subgroups = n // subgroup_size
-
         if n_subgroups < 2:
-            raise ValueError(
-                f"子组大小为 {subgroup_size} 时，至少需要 {subgroup_size * 2} 个数据点"
-            )
-
-        # 计算子组内极差
-        subgroups = arr[: n_subgroups * subgroup_size].reshape(-1, subgroup_size)
+            n_subgroups = 1 # Fallback if data is too short for multiple subgroups
+            subgroups = arr[:subgroup_size].reshape(1, -1)
+        else:
+            subgroups = arr[: n_subgroups * subgroup_size].reshape(-1, subgroup_size)
+        
         ranges = np.ptp(subgroups, axis=1)
         bar_R = np.mean(ranges)
         d2 = _d2_constant(subgroup_size)
         std_within = float(bar_R / d2)
-
-    else:  # subgroup_size == 1
-        # 方法 B：I-MR（移动极差）
+    else:
         mode = "cpk_individual"
-
-        if n < 2:
-            raise ValueError("I-MR 方法至少需要 2 个数据点")
-
         moving_ranges = np.abs(np.diff(arr))
-        bar_MR = np.mean(moving_ranges)
+        bar_MR = np.mean(moving_ranges) if len(moving_ranges) > 0 else 0
         d2_mr = 1.128
         std_within = float(bar_MR / d2_mr)
         n_subgroups = max(1, n - 1)
 
-    # 2. 计算三个指标
-    # ========================================================================
-    cp = _calc_cp(usl, lsl, std_within)
-    cpk = _calc_cpk(mean, usl, lsl, std_within)
-    pp = _calc_cp(usl, lsl, std_overall)
-    ppk = _calc_cpk(mean, usl, lsl, std_overall)
-    cmk = _calc_cpk(mean, usl, lsl, std_overall)  # Cmk 用全样本标准差
-
-    # 3. 计算超出规格的百分比
-    # ========================================================================
-    pct_above = _calc_pct_above(usl, mean, std_overall)
-    pct_below = _calc_pct_below(lsl, mean, std_overall)
+    # 2. 计算指标（如果提供了规格限）
+    if usl is not None or lsl is not None:
+        cp = _calc_cp(usl, lsl, std_within)
+        cpk = _calc_cpk(mean, usl, lsl, std_within)
+        pp = _calc_cp(usl, lsl, std_overall)
+        ppk = _calc_cpk(mean, usl, lsl, std_overall)
+        cmk = ppk
+        
+        pct_above = _calc_pct_above(usl, mean, std_overall)
+        pct_below = _calc_pct_below(lsl, mean, std_overall)
+        
+        ppm_obs = 0
+        if usl is not None:
+            ppm_obs += np.sum(arr > usl)
+        if lsl is not None:
+            ppm_obs += np.sum(arr < lsl)
+        ppm_obs = (ppm_obs / n) * 1e6
+        
+        ppm_exp_within = (_calc_pct_above(usl, mean, std_within) + _calc_pct_below(lsl, mean, std_within)) * 1e6
+        ppm_exp_overall = (pct_above + pct_below) * 1e6
+    else:
+        cp = cpk = pp = ppk = cmk = None
+        pct_above = pct_below = 0.0
+        ppm_obs = ppm_exp_within = ppm_exp_overall = 0.0
 
     return CapabilityResult(
         mean=mean,
@@ -224,6 +193,9 @@ def calculate_capability(
         sample_size=n,
         num_subgroups=n_subgroups,
         analysis_mode=mode,
+        ppm_observed_total=ppm_obs,
+        ppm_expected_within_total=ppm_exp_within,
+        ppm_expected_overall_total=ppm_exp_overall,
     )
 
 
