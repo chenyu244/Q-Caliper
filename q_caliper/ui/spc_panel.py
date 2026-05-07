@@ -1,4 +1,4 @@
-"""SPC Panel — control charts, violation detection, capability trend."""
+"""SPC 统计过程控制 Panel — control charts, violation detection, capability trend."""
 
 # isort: skip_file
 from __future__ import annotations
@@ -10,13 +10,18 @@ matplotlib.use("QtAgg")
 import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
+from pathlib import Path
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
+    QDoubleSpinBox,
+    QFileDialog,
     QFormLayout,
     QHBoxLayout,
+    QLabel,
+    QScrollArea,
     QSpinBox,
     QSplitter,
     QTableWidget,
@@ -32,6 +37,7 @@ from qfluentwidgets import (
     FluentIcon,
     InfoBar,
     PrimaryPushButton,
+    PushButton,
     StrongBodyLabel,
     TitleLabel,
 )
@@ -41,17 +47,10 @@ from q_caliper.core.spc import SpcChartResult, xbar_r_chart, imr_chart
 
 
 def _setup_matplotlib_font() -> None:
-    candidates = [
-        "Microsoft YaHei", "SimHei", "SimSun", "NSimSun",
-        "FangSong", "KaiTi", "Microsoft JhengHei",
-        "WenQuanYi Micro Hei", "Noto Sans CJK SC",
-    ]
-    available = {f.name for f in fm.fontManager.ttflist}
-    for name in candidates:
-        if name in available:
-            matplotlib.rcParams["font.sans-serif"] = [name]
-            matplotlib.rcParams["axes.unicode_minus"] = False
-            return
+    """Configure matplotlib to use a CJK font for Chinese labels."""
+    matplotlib.rcParams["font.sans-serif"] = ["Microsoft YaHei", "SimHei", "sans-serif"]
+    matplotlib.rcParams["font.family"] = "sans-serif"
+    matplotlib.rcParams["axes.unicode_minus"] = False
 
 
 _setup_matplotlib_font()
@@ -75,7 +74,7 @@ TABLE_STYLE = """
 
 
 class SpcInputCard(CardWidget):
-    """SPC parameter input card."""
+    """SPC parameter input card with collapsible support."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -83,12 +82,39 @@ class SpcInputCard(CardWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(16, 12, 16, 12)
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(16, 12, 16, 12)
+        self.main_layout.setSpacing(0)
 
-        header = StrongBodyLabel("SPC 参数设置")
-        header.setStyleSheet("font-size: 14px; margin-bottom: 6px;")
-        layout.addWidget(header)
+        header_row = QHBoxLayout()
+        header_row.setContentsMargins(0, 0, 0, 0)
+        header = StrongBodyLabel("分析参数设置")
+        header.setStyleSheet("font-size: 14px;")
+        header_row.addWidget(header)
+        header_row.addStretch()
+
+        self.report_btn = PushButton("导出 PDF")
+        self.report_btn.setIcon(FluentIcon.PRINT)
+        self.report_btn.setFixedWidth(130)
+        self.report_btn.setFixedHeight(28)
+        self.report_btn.clicked.connect(self._on_export_pdf)
+        self.report_btn.setEnabled(False)
+        header_row.addWidget(self.report_btn)
+
+        self.toggle_btn = PushButton("")
+        self.toggle_btn.setIcon(FluentIcon.UP)
+        self.toggle_btn.setFixedSize(28, 28)
+        self.toggle_btn.setStyleSheet("PushButton { border: none; }")
+        self.toggle_btn.setToolTip("折叠/展开参数区")
+        self.toggle_btn.clicked.connect(self._toggle_collapse)
+        header_row.addWidget(self.toggle_btn)
+
+        self.main_layout.addLayout(header_row)
+
+        self.content_widget = QWidget()
+        content_layout = QVBoxLayout(self.content_widget)
+        content_layout.setContentsMargins(0, 8, 0, 0)
+        content_layout.setSpacing(0)
 
         form = QFormLayout()
         form.setSpacing(8)
@@ -100,50 +126,123 @@ class SpcInputCard(CardWidget):
 
         self.measure_combo = QComboBox()
         self.measure_combo.setPlaceholderText("-- 测量数据列 --")
+        self.measure_combo.setMinimumWidth(180)
+        self.measure_combo.setFixedHeight(32)
         form.addRow("测量列:", self.measure_combo)
 
         self.subgroup_spin = QSpinBox()
         self.subgroup_spin.setRange(2, 10)
         self.subgroup_spin.setValue(5)
+        self.subgroup_spin.setFixedHeight(32)
         self.subgroup_spin.setToolTip("XBar-R 图的子组大小 (2-10)")
         form.addRow("子组大小:", self.subgroup_spin)
 
-        self.usl_combo = QComboBox()
-        self.usl_combo.setPlaceholderText("-- 可选 --")
-        self.usl_combo.setEditable(True)
-        self.usl_combo.setCurrentText("")
-        form.addRow("USL (可选):", self.usl_combo)
+        spec_lbl_row = QHBoxLayout()
+        spec_lbl_row.setContentsMargins(0, 0, 0, 0)
+        spec_lbl_row.addWidget(QLabel("规格限 (LSL / USL):"))
+        self.magic_btn = PushButton("智能推荐")
+        self.magic_btn.setFixedHeight(22)
+        self.magic_btn.setStyleSheet("font-size: 11px; padding: 0 5px;")
+        self.magic_btn.clicked.connect(self._show_spec_menu)
+        spec_lbl_row.addWidget(self.magic_btn)
+        spec_lbl_row.addStretch()
+        form.addRow(spec_lbl_row)
 
-        self.lsl_combo = QComboBox()
-        self.lsl_combo.setPlaceholderText("-- 可选 --")
-        self.lsl_combo.setEditable(True)
-        self.lsl_combo.setCurrentText("")
-        form.addRow("LSL (可选):", self.lsl_combo)
+        spec_input_row = QHBoxLayout()
+        spec_input_row.setContentsMargins(0, 0, 0, 0)
+        self.lsl_spin = QDoubleSpinBox()
+        self.lsl_spin.setRange(-1e12, 1e12)
+        self.lsl_spin.setDecimals(4)
+        self.lsl_spin.setSpecialValueText("无")
+        self.lsl_spin.setValue(-1e12)
+        self.lsl_spin.setFixedHeight(32)
+        spec_input_row.addWidget(self.lsl_spin)
+        self.usl_spin = QDoubleSpinBox()
+        self.usl_spin.setRange(-1e12, 1e12)
+        self.usl_spin.setDecimals(4)
+        self.usl_spin.setSpecialValueText("无")
+        self.usl_spin.setValue(-1e12)
+        self.usl_spin.setFixedHeight(32)
+        spec_input_row.addWidget(self.usl_spin)
+        form.addRow(spec_input_row)
 
-        layout.addLayout(form)
+        content_layout.addLayout(form)
 
         btn_row = QHBoxLayout()
-
+        btn_row.setContentsMargins(0, 8, 0, 0)
         self.calc_btn = PrimaryPushButton("生成控制图")
         self.calc_btn.setIcon(FluentIcon.PLAY)
-        self.calc_btn.setFixedHeight(36)
+        self.calc_btn.setFixedHeight(32)
         self.calc_btn.clicked.connect(self._on_calculate)
         btn_row.addWidget(self.calc_btn)
+        btn_row.addStretch()
+        content_layout.addLayout(btn_row)
 
-        layout.addLayout(btn_row)
+        self.main_layout.addWidget(self.content_widget)
+
+    def _toggle_collapse(self) -> None:
+        if self.content_widget.parent() is not None:
+            self.main_layout.removeWidget(self.content_widget)
+            self.content_widget.setParent(None)
+            self.toggle_btn.setIcon(FluentIcon.DOWN)
+        else:
+            self.main_layout.addWidget(self.content_widget)
+            self.toggle_btn.setIcon(FluentIcon.UP)
+        self.main_layout.activate()
 
     def _on_chart_type_changed(self, index: int) -> None:
-        self.subgroup_spin.setEnabled(index == 0)
+        pass
+
+    def _show_spec_menu(self) -> None:
+        from qfluentwidgets import RoundMenu, Action
+        if self.df is None:
+            return
+
+        col = self.measure_combo.currentText()
+        if not col:
+            return
+
+        data = self.df[col].dropna().values
+        if len(data) == 0:
+            return
+
+        mean = np.mean(data)
+        std = np.std(data, ddof=1)
+
+        menu = RoundMenu(parent=self.magic_btn)
+
+        actions = [
+            ("\u00b13 Sigma (99.7%)", mean + 3 * std, mean - 3 * std),
+            ("\u00b16 Sigma (\u7cbe\u5bc6)", mean + 6 * std, mean - 6 * std),
+            ("\u5168\u8303\u56f4 (Max/Min)", np.max(data), np.min(data)),
+            ("\u91cd\u7f6e\u89c4\u683c", -1e12, -1e12),
+        ]
+
+        for text, usl, lsl in actions:
+            act = Action(text, self)
+            act.triggered.connect(lambda checked, u=usl, l=lsl, t=text: self._apply_spec(u, l, t))
+            menu.addAction(act)
+
+        menu.exec(self.magic_btn.mapToGlobal(self.magic_btn.rect().bottomLeft()))
+
+    def _apply_spec(self, usl: float, lsl: float, text: str = "\u667a\u80fd\u63a8\u8350") -> None:
+        self.usl_spin.setValue(usl)
+        self.lsl_spin.setValue(lsl)
+        self.magic_btn.setText(text)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df
         self.measure_combo.clear()
         numeric_cols = df.select_dtypes(include=[np.number]).columns.tolist()
         self.measure_combo.addItems([str(c) for c in numeric_cols])
-        self.usl_combo.clear()
-        self.usl_combo.addItems([""] + [str(c) for c in numeric_cols])
-        self.lsl_combo.clear()
-        self.lsl_combo.addItems([""] + [str(c) for c in numeric_cols])
+
+    def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
+        """Pre-select columns based on roles from Data Center."""
+        if "测量值" in mapping and mapping["测量值"]:
+            col = mapping["测量值"][0]
+            idx = self.measure_combo.findText(col)
+            if idx >= 0:
+                self.measure_combo.setCurrentIndex(idx)
 
     def _on_calculate(self) -> None:
         if self.df is None:
@@ -173,37 +272,69 @@ class SpcInputCard(CardWidget):
                 chart1_name = "I (个体值图)"
                 chart2_name = "MR (移动极差图)"
 
-            usl_text = self.usl_combo.currentText().strip()
-            lsl_text = self.lsl_combo.currentText().strip()
-
-            usl_val = None
-            lsl_val = None
-            if usl_text:
-                try:
-                    usl_val = float(usl_text)
-                except ValueError:
-                    if usl_text in self.df.columns:
-                        usl_val = float(self.df[usl_text].dropna().mean())
-            if lsl_text:
-                try:
-                    lsl_val = float(lsl_text)
-                except ValueError:
-                    if lsl_text in self.df.columns:
-                        lsl_val = float(self.df[lsl_text].dropna().mean())
+            usl_val = self.usl_spin.value()
+            lsl_val = self.lsl_spin.value()
+            usl = None if usl_val <= -1e11 else usl_val
+            lsl = None if lsl_val <= -1e11 else lsl_val
 
             cpk_result = None
-            if usl_val is not None or lsl_val is not None:
+            if usl is not None or lsl is not None:
                 with contextlib.suppress(Exception):
-                    cpk_result = calculate_capability(data, usl_val, lsl_val, sg_size if chart_type == 0 else 1)
+                    cpk_result = calculate_capability(data, usl, lsl, sg_size if chart_type == 0 else 1)
 
             parent_widget = self.parent()
             while parent_widget and not isinstance(parent_widget, SpcPanelWidget):
                 parent_widget = parent_widget.parent()
             if isinstance(parent_widget, SpcPanelWidget):
                 parent_widget.show_results(chart1, chart2, chart1_name, chart2_name, cpk_result, col)
+                self.report_btn.setEnabled(True)
 
         except Exception as e:
             InfoBar.error("计算错误", str(e), parent=self)
+
+    def _on_export_pdf(self) -> None:
+        from q_caliper.reports.report_engine import generate_spc_report
+
+        parent = self.parent()
+        while parent and not isinstance(parent, SpcPanelWidget):
+            parent = parent.parent()
+
+        if not parent:
+            return
+
+        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "SPC分析报告.pdf", "PDF 文件 (*.pdf)")
+        if not path:
+            return
+
+        try:
+            chart_paths = []
+            figs = [parent.chart1_widget.figure, parent.chart2_widget.figure]
+            if parent.trend_card.figure is not None:
+                figs.append(parent.trend_card.figure)
+            for i, fig in enumerate(figs):
+                tmp_img = str(Path(f"tmp_spc_chart_{i}.png").resolve())
+                fig.savefig(tmp_img, dpi=120)
+                chart_paths.append(tmp_img)
+
+            generate_spc_report(
+                path,
+                chart1=parent.last_chart1,
+                chart2=parent.last_chart2,
+                chart1_name=parent.last_chart1_name,
+                chart2_name=parent.last_chart2_name,
+                cpk_result=parent.last_cpk_result,
+                chart_paths=chart_paths,
+                col_name=parent.last_col_name,
+                chart_type_name=parent.input_card.chart_type_combo.currentText(),
+                subgroup_size=parent.input_card.subgroup_spin.value(),
+                data_length=parent.last_data_length,
+            )
+            InfoBar.success("导出成功", f"报告已保存至: {path}", parent=self, duration=5000)
+        except Exception as e:
+            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{str(e)}", parent=self, duration=-1)
+        finally:
+            for p in chart_paths:
+                Path(p).unlink(missing_ok=True)
 
 
 class ControlChartWidget(CardWidget):
@@ -213,10 +344,11 @@ class ControlChartWidget(CardWidget):
         super().__init__(parent)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(6, 6, 6, 6)
-        self.figure = Figure(figsize=(6, 3.5), dpi=100)
+        self.figure = Figure(figsize=(6, 4), dpi=90)
         self.figure.set_facecolor("white")
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.canvas.setMinimumHeight(280)
         layout.addWidget(self.canvas)
 
     def plot(self, chart: SpcChartResult, title: str) -> None:
@@ -308,6 +440,15 @@ class ViolationsTable(CardWidget):
 
         self.table.resizeRowsToContents()
 
+    def get_violations_data(self) -> list[tuple[str, str, str, str]]:
+        """Return violations as list of (chart, rule, position, description)."""
+        result = []
+        for row in range(self.table.rowCount()):
+            items = [self.table.item(row, c) for c in range(4)]
+            if all(item is not None for item in items):
+                result.append(tuple(item.text() for item in items))
+        return result
+
 
 class CpkTrendCard(CardWidget):
     """Cpk trend analysis chart."""
@@ -321,10 +462,11 @@ class CpkTrendCard(CardWidget):
         header.setStyleSheet("font-size: 14px; margin-bottom: 4px;")
         layout.addWidget(header)
 
-        self.figure = Figure(figsize=(6, 2.5), dpi=100)
+        self.figure = Figure(figsize=(6, 3), dpi=90)
         self.figure.set_facecolor("white")
         self.canvas = FigureCanvas(self.figure)
         self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.canvas.setMinimumHeight(200)
         layout.addWidget(self.canvas)
 
     def plot_trend(self, data: np.ndarray, usl: float | None, lsl: float | None, n_segments: int = 5, sg_size: int = 1) -> None:
@@ -384,58 +526,81 @@ class SpcPanelWidget(QWidget):
         super().__init__(parent)
         self.setObjectName("spc_panel")
         self.df: pd.DataFrame | None = None
+        self.last_chart1 = None
+        self.last_chart2 = None
+        self.last_chart1_name = ""
+        self.last_chart2_name = ""
+        self.last_cpk_result = None
+        self.last_col_name = ""
+        self.last_data_length = 0
         self._setup_ui()
 
     def _setup_ui(self) -> None:
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 10, 20, 20)
+        main_layout.setSpacing(15)
 
-        header = TitleLabel("SPC 统计过程控制")
+        header_row = QHBoxLayout()
+        header = TitleLabel("统计过程控制 (SPC)")
         header.setStyleSheet("font-size: 20px; font-weight: bold;")
-        main_layout.addWidget(header)
+        header_row.addWidget(header)
+        header_row.addStretch()
+        main_layout.addLayout(header_row)
 
-        desc = BodyLabel("XBar-R / I-MR 控制图, 自动检测八大判异准则, 过程能力趋势分析")
-        desc.setStyleSheet("color: #666; margin-bottom: 8px;")
+        desc = BodyLabel("XBar-R / I-MR 控制图, 八大判异准则自动检测, 过程能力趋势分析")
+        desc.setStyleSheet("color: #666; margin-bottom: 2px;")
         main_layout.addWidget(desc)
 
-        top_splitter = QSplitter(Qt.Orientation.Horizontal)
-
         self.input_card = SpcInputCard(self)
-        top_splitter.addWidget(self.input_card)
+        main_layout.addWidget(self.input_card)
 
-        self.violations_table = ViolationsTable(self)
-        top_splitter.addWidget(self.violations_table)
-
-        top_splitter.setSizes([300, 600])
-
+        charts_scroll = QScrollArea()
+        charts_scroll.setWidgetResizable(True)
+        charts_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         charts_container = QWidget()
         charts_layout = QVBoxLayout(charts_container)
-        charts_layout.setContentsMargins(0, 0, 0, 0)
         charts_layout.setSpacing(8)
 
         chart_row = QHBoxLayout()
+        chart_row.setSpacing(12)
         self.chart1_widget = ControlChartWidget(self)
         self.chart2_widget = ControlChartWidget(self)
         chart_row.addWidget(self.chart1_widget)
         chart_row.addWidget(self.chart2_widget)
         charts_layout.addLayout(chart_row)
 
+        bottom_row = QHBoxLayout()
+        bottom_row.setSpacing(12)
+        self.violations_table = ViolationsTable(self)
+        bottom_row.addWidget(self.violations_table, 1)
         self.trend_card = CpkTrendCard(self)
-        charts_layout.addWidget(self.trend_card)
+        bottom_row.addWidget(self.trend_card, 1)
+        charts_layout.addLayout(bottom_row)
 
-        main_layout.addWidget(top_splitter, 1)
-        main_layout.addWidget(charts_container, 2)
+        charts_scroll.setWidget(charts_container)
+        main_layout.addWidget(charts_scroll, 1)
 
     def set_dataframe(self, df: pd.DataFrame, filename: str) -> None:
         self.df = df
         self.input_card.set_dataframe(df)
 
+    def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
+        self.input_card.set_selected_columns(mapping)
+
     def show_results(self, chart1, chart2, chart1_name, chart2_name, cpk_result, col_name) -> None:
+        self.last_chart1 = chart1
+        self.last_chart2 = chart2
+        self.last_chart1_name = chart1_name
+        self.last_chart2_name = chart2_name
+        self.last_cpk_result = cpk_result
+        self.last_col_name = col_name
+
         self.chart1_widget.plot(chart1, f"{col_name} - {chart1_name}")
         self.chart2_widget.plot(chart2, f"{col_name} - {chart2_name}")
         self.violations_table.show_violations(chart1, chart1_name, chart2, chart2_name)
 
         data = self.df[col_name].dropna().values if self.df is not None else None
+        self.last_data_length = len(data) if data is not None else 0
         usl = cpk_result.usl if cpk_result else None
         lsl = cpk_result.lsl if cpk_result else None
         if data is not None:

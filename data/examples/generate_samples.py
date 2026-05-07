@@ -54,9 +54,38 @@ def generate_spc_data(output_dir: Path) -> None:
     print(f"Generated: {path}")
 
 
+def generate_msa_data(output_dir: Path) -> None:
+    """Generate MSA example dataset (bias + linearity)."""
+    rng = np.random.default_rng(77)
+
+    # Bias: 50 samples, true mean ~100.3 (ref=100.0)
+    bias_data = rng.normal(loc=100.3, scale=0.6, size=50)
+
+    # Linearity: 5 reference points with proportional bias
+    refs = np.array([10, 20, 30, 40, 50], dtype=float)
+    linearity_means = refs * 1.02 + 0.5 + rng.normal(0, 0.15, size=len(refs))
+
+    n = max(len(bias_data), len(refs))
+    rows = []
+    for i in range(n):
+        row = {}
+        if i < len(bias_data):
+            row["测量值"] = round(float(bias_data[i]), 4)
+        if i < len(refs):
+            row["参考值_线性"] = int(refs[i])
+            row["测量均值_线性"] = round(float(linearity_means[i]), 4)
+        rows.append(row)
+
+    df = pd.DataFrame(rows)
+    path = output_dir / "msa_example.xlsx"
+    df.to_excel(path, index=False, engine="openpyxl")
+    print(f"Generated: {path}")
+
+
 if __name__ == "__main__":
     output_dir = Path(__file__).parent
     generate_cpk_data(output_dir)
     generate_grr_data(output_dir)
     generate_spc_data(output_dir)
+    generate_msa_data(output_dir)
     print("All sample datasets generated.")

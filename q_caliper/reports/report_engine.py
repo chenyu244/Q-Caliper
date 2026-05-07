@@ -47,6 +47,17 @@ class ReportData:
     custom_data: dict = field(default_factory=dict)
 
 
+def _escape_typst_content(text: str) -> str:
+    """Escape characters that Typst interprets as markup inside content blocks."""
+    return (
+        str(text)
+        .replace("[", "(")
+        .replace("]", ")")
+        .replace("<", "\\<")
+        .replace(">", "\\>")
+    )
+
+
 def _format_typst_table(headers: list[str], rows: list[list[str]]) -> str:
     """Helper to format a raw Typst table from headers and rows."""
     if not headers and not rows:
@@ -55,10 +66,10 @@ def _format_typst_table(headers: list[str], rows: list[list[str]]) -> str:
     cols_str = "(" + ", ".join(["auto"] * col_count) + ")"
     block = f"#table(\n  columns: {cols_str},\n  inset: 8pt,\n  stroke: 0.5pt,\n  align: center,\n"
     if headers:
-        header_str = ", ".join([f"[*{(h)}*]" for h in headers])
+        header_str = ", ".join([f"[*{_escape_typst_content(h)}*]" for h in headers])
         block += f"  table.header({header_str}),\n"
     for row in rows:
-        row_str = ", ".join([f"[{str(v).replace('[', '(').replace(']', ')')}]" for v in row])
+        row_str = ", ".join([f"[{_escape_typst_content(v)}]" for v in row])
         block += f"  {row_str},\n"
     block += ")\n"
     return block
@@ -148,7 +159,7 @@ def _render_template(template_path: Path, data: ReportData, config: ReportConfig
 
     summary_lines = []
     for key, val in data.summary.items():
-        summary_lines.append(f"[{key}], [{val}],")
+        summary_lines.append(f"[{_escape_typst_content(key)}], [{_escape_typst_content(val)}],")
     template = template.replace("{{SUMMARY_ROWS}}", "\n".join(summary_lines))
 
     table_blocks = []
@@ -160,11 +171,11 @@ def _render_template(template_path: Path, data: ReportData, config: ReportConfig
         block = f"#table(\n  columns: {cols_str},\n  inset: 8pt,\n  stroke: 0.5pt,\n"
         
         if headers:
-            header_str = ", ".join([f"[{h}]" for h in headers])
+            header_str = ", ".join([f"[{_escape_typst_content(h)}]" for h in headers])
             block += f"  table.header({header_str}),\n"
             
         for row in rows:
-            row_str = ", ".join([f"[{str(v).replace('[', '(').replace(']', ')')}]" for v in row])
+            row_str = ", ".join([f"[{_escape_typst_content(v)}]" for v in row])
             block += f"  {row_str},\n"
             
         block += ")\n"
@@ -247,38 +258,299 @@ def generate_grr_report(
     chart_paths: list[str],
     config: ReportConfig | None = None,
 ) -> str:
-    """Generate a GRR analysis PDF report."""
+    """Generate a GRR analysis PDF report following Minitab output conventions."""
+    import math
+
+    n = grr_result.n_parts * grr_result.n_operators * grr_result.n_trials
+
+    # ── 1. Data Summary ──
+    data_summary_headers = ["参数", "值", "参数", "值"]
+    data_summary_rows = [
+        ["零件数", str(grr_result.n_parts), "总测量次数", str(n)],
+        ["操作者数", str(grr_result.n_operators), "分析方法", "双因素 ANOVA (含交互作用)"],
+        ["重复次数", str(grr_result.n_trials), "总均值", f"{grr_result.grand_mean:.4f}"],
+    ]
+
+    # ── 2. ANOVA Table (with interaction) ──
+    anova_headers = ["来源", "自由度", "SS", "MS", "F", "P"]
     anova_rows = []
     for row in grr_result.anova_table:
         anova_rows.append([
             row.source,
-            f"{row.ss:.4f}",
             str(row.df),
-            f"{row.ms:.4f}",
+            f"{row.ss:.2f}",
+            f"{row.ms:.3f}",
             f"{row.f_value:.2f}" if row.f_value else "-",
-            f"{row.p_value:.4f}" if row.p_value else "-",
+            f"{row.p_value:.3f}" if row.p_value else "-",
         ])
 
+    # ── 3. Variance Components ──
+    var_total = grr_result.var_total if grr_result.var_total > 0 else 1e-12
+    var_grr = grr_result.var_repeatability + grr_result.var_reproducibility + grr_result.var_interaction
+
+    def _contrib(v: float) -> str:
+        return f"{v / var_total * 100:.2f}" if var_total > 0 else "-"
+
+    var_comp_headers = ["来源", "方差分量", "贡献率 (%)"]
+    var_comp_rows = [
+        ["合计量具 R&R", f"{var_grr:.4f}", _contrib(var_grr)],
+        ["  重复性", f"{grr_result.var_repeatability:.4f}", _contrib(grr_result.var_repeatability)],
+        ["  再现性", f"{grr_result.var_reproducibility:.4f}", _contrib(grr_result.var_reproducibility)],
+        ["    操作者", f"{grr_result.var_reproducibility:.4f}", _contrib(grr_result.var_reproducibility)],
+        ["部件间", f"{grr_result.var_parts:.4f}", _contrib(grr_result.var_parts)],
+        ["合计变异", f"{var_total:.4f}", _contrib(var_total)],
+    ]
+
+    # ── 4. Study Variation ──
+    def _sd(v: float) -> float:
+        return math.sqrt(v) if v > 0 else 0.0
+
+    sd_grr = _sd(var_grr)
+    sd_ev = _sd(grr_result.var_repeatability)
+    sd_av = _sd(grr_result.var_reproducibility)
+    sd_pv = _sd(grr_result.var_parts)
+    sd_total = _sd(var_total)
+
+    def _pct_sv(sd_val: float) -> str:
+        return f"{sd_val / sd_total * 100:.2f}" if sd_total > 0 else "-"
+
+    study_var_headers = ["来源", "标准差 (SD)", "研究变异 (6 x SD)", "%研究变异 (%SV)"]
+    study_var_rows = [
+        ["合计量具 R&R", f"{sd_grr:.4f}", f"{sd_grr * 6:.4f}", _pct_sv(sd_grr)],
+        ["  重复性", f"{sd_ev:.4f}", f"{sd_ev * 6:.4f}", _pct_sv(sd_ev)],
+        ["  再现性", f"{sd_av:.4f}", f"{sd_av * 6:.4f}", _pct_sv(sd_av)],
+        ["    操作者", f"{sd_av:.4f}", f"{sd_av * 6:.4f}", _pct_sv(sd_av)],
+        ["部件间", f"{sd_pv:.4f}", f"{sd_pv * 6:.4f}", _pct_sv(sd_pv)],
+        ["合计变异", f"{sd_total:.4f}", f"{sd_total * 6:.4f}", "100.00"],
+    ]
+
+    # ── 5. Conclusion summary ──
+    pct_grr_grade = "可接受" if grr_result.pct_grr < 10 else "有条件接受" if grr_result.pct_grr < 30 else "不可接受"
+    ndc_grade = "可接受" if grr_result.ndc >= 5 else "不可接受"
+
+    conclusion_headers = ["指标", "值", "判定"]
+    conclusion_rows = [
+        ["%GRR", f"{grr_result.pct_grr:.2f}%", pct_grr_grade],
+        ["%PV", f"{grr_result.pct_part_variation:.2f}%", "-"],
+        ["ndc (分级数)", str(grr_result.ndc), ndc_grade],
+    ]
+
+    custom_data = {
+        "TABLE_DATA_SUMMARY": _format_typst_table(data_summary_headers, data_summary_rows),
+        "TABLE_ANOVA": _format_typst_table(anova_headers, anova_rows),
+        "TABLE_VAR_COMP": _format_typst_table(var_comp_headers, var_comp_rows),
+        "TABLE_STUDY_VAR": _format_typst_table(study_var_headers, study_var_rows),
+        "TABLE_CONCLUSION": _format_typst_table(conclusion_headers, conclusion_rows),
+    }
+
     data = ReportData(
-        module="GRR",
-        title="GRR 量具重复性与再现性分析报告",
-        summary={
-            "%GRR": f"{grr_result.pct_grr:.2f}%",
-            "ndc": str(grr_result.ndc),
-            "重复性 (EV)": f"{grr_result.var_repeatability:.6f}",
-            "再现性 (AV)": f"{grr_result.var_reproducibility:.6f}",
-            "零件 (PV)": f"{grr_result.var_parts:.6f}",
-        },
-        tables=[
-            {
-                "headers": ["来源", "SS", "df", "MS", "F", "p-value"],
-                "rows": anova_rows,
-            }
-        ],
+        module="量具分析",
+        title="量具重复性与再现性深度分析报告",
         chart_paths=chart_paths,
+        custom_data=custom_data,
     )
 
     return render_report("grr_report", output_path, data, config)
+
+
+def generate_msa_report(
+    output_path: str,
+    bias_result=None,
+    linear_result=None,
+    chart_paths: list[str] | None = None,
+    bias_data=None,
+    bias_col_name: str = "",
+    linear_refs=None,
+    linear_means=None,
+    process_variation: float | None = None,
+    config: ReportConfig | None = None,
+) -> str:
+    """Generate an MSA analysis PDF report following Minitab output conventions."""
+    if chart_paths is None:
+        chart_paths = []
+
+    custom_data: dict[str, str] = {}
+
+    # ── 1. Bias Data Summary ──
+    if bias_result is not None and bias_data is not None:
+        bias_sum_headers = ["参数", "值"]
+        bias_sum_rows = [
+            ["分析类型", "偏差分析 (Bias) - 单样本 t 检验"],
+            ["测量列", bias_col_name],
+            ["有效样本量", str(len(bias_data))],
+            ["参考值 (标称真值)", f"{bias_result.reference_value:.4f}"],
+            ["显著性水平 (alpha)", "0.05"],
+        ]
+        custom_data["TABLE_BIAS_SUMMARY"] = _format_typst_table(bias_sum_headers, bias_sum_rows)
+    else:
+        custom_data["TABLE_BIAS_SUMMARY"] = ""
+
+    # ── 2. Bias Result ──
+    if bias_result is not None:
+        sig_text = "显著 (存在偏差)" if bias_result.is_significant else "不显著 (无显著偏差)"
+        bias_headers = ["指标", "值"]
+        bias_rows = [
+            ["观测均值", f"{bias_result.observed_mean:.4f}"],
+            ["参考值", f"{bias_result.reference_value:.4f}"],
+            ["偏差 (Bias)", f"{bias_result.mean_bias:.4f}"],
+            ["偏差百分比", f"{bias_result.pct_bias:.2f}%"],
+            ["t 统计量", f"{bias_result.t_statistic:.4f}"],
+            ["p 值", f"{bias_result.p_value:.4f}"],
+            ["95% CI 下限", f"{bias_result.ci_lower:.4f}"],
+            ["95% CI 上限", f"{bias_result.ci_upper:.4f}"],
+            ["显著性结论", sig_text],
+        ]
+        custom_data["TABLE_BIAS_RESULT"] = _format_typst_table(bias_headers, bias_rows)
+    else:
+        custom_data["TABLE_BIAS_RESULT"] = ""
+
+    # ── 3. Linearity Data Summary ──
+    if linear_result is not None and linear_refs is not None:
+        lin_sum_headers = ["参数", "值"]
+        lin_sum_rows = [
+            ["分析类型", "线性分析 (Linearity) - 最小二乘回归"],
+            ["参考值个数", str(len(linear_refs))],
+            ["参考值范围", f"{min(linear_refs):.2f} ~ {max(linear_refs):.2f}"],
+            ["过程变异 (6\u03c3)", f"{process_variation:.4f}" if process_variation is not None else "未设置"],
+        ]
+        custom_data["TABLE_LINEAR_SUMMARY"] = _format_typst_table(lin_sum_headers, lin_sum_rows)
+    else:
+        custom_data["TABLE_LINEAR_SUMMARY"] = ""
+
+    # ── 4. Linearity Result ──
+    if linear_result is not None:
+        pt_grade = "可接受" if linear_result.pt_ratio < 0.1 else "有条件接受" if linear_result.pt_ratio < 0.3 else "不可接受"
+        lin_headers = ["指标", "值"]
+        lin_rows = [
+            ["斜率 (Slope)", f"{linear_result.slope:.6f}"],
+            ["截距 (Intercept)", f"{linear_result.intercept:.6f}"],
+            ["R-squared", f"{linear_result.r_squared:.4f}"],
+            ["斜率 p 值", f"{linear_result.p_slope:.4f}"],
+            ["P/T 比", f"{linear_result.pt_ratio:.4f}"],
+            ["P/T 判定", pt_grade],
+            ["线性度", f"{linear_result.linearity:.4f}"],
+        ]
+        custom_data["TABLE_LINEAR_RESULT"] = _format_typst_table(lin_headers, lin_rows)
+
+        point_headers = ["参考值", "观测均值", "偏差"]
+        point_rows = [
+            [f"{p.reference:.4f}", f"{p.observed_mean:.4f}", f"{p.bias:.4f}"]
+            for p in linear_result.points
+        ]
+        custom_data["TABLE_LINEAR_POINTS"] = _format_typst_table(point_headers, point_rows)
+    else:
+        custom_data["TABLE_LINEAR_RESULT"] = ""
+        custom_data["TABLE_LINEAR_POINTS"] = ""
+
+    data = ReportData(
+        module="MSA",
+        title="测量系统分析 (MSA) 报告",
+        chart_paths=chart_paths,
+        custom_data=custom_data,
+    )
+
+    return render_report("msa_report", output_path, data, config)
+
+
+def generate_spc_report(
+    output_path: str,
+    chart1=None,
+    chart2=None,
+    chart1_name: str = "",
+    chart2_name: str = "",
+    cpk_result=None,
+    chart_paths: list[str] | None = None,
+    col_name: str = "",
+    chart_type_name: str = "",
+    subgroup_size: int = 5,
+    data_length: int = 0,
+    config: ReportConfig | None = None,
+) -> str:
+    """Generate an SPC analysis PDF report."""
+    if chart_paths is None:
+        chart_paths = []
+
+    custom_data: dict[str, str] = {}
+
+    # ── 1. Data Summary ──
+    sum_headers = ["参数", "值"]
+    sum_rows = [
+        ["测量列", col_name],
+        ["图表类型", chart_type_name],
+        ["数据点数", str(data_length)],
+    ]
+    if "XBar" in chart_type_name:
+        sum_rows.append(["子组大小", str(subgroup_size)])
+        n_subgroups = data_length // subgroup_size if subgroup_size > 0 else 0
+        sum_rows.append(["子组数", str(n_subgroups)])
+    custom_data["TABLE_DATA_SUMMARY"] = _format_typst_table(sum_headers, sum_rows)
+
+    # ── 2. Control Limits ──
+    if chart1 is not None and chart2 is not None:
+        lim_headers = ["图表", "UCL", "CL (中心线)", "LCL"]
+        lim_rows = [
+            [
+                chart1_name,
+                f"{chart1.limits.ucl:.4f}",
+                f"{chart1.limits.cl:.4f}",
+                f"{chart1.limits.lcl:.4f}",
+            ],
+            [
+                chart2_name,
+                f"{chart2.limits.ucl:.4f}",
+                f"{chart2.limits.cl:.4f}",
+                f"{chart2.limits.lcl:.4f}",
+            ],
+        ]
+        custom_data["TABLE_LIMITS"] = _format_typst_table(lim_headers, lim_rows)
+    else:
+        custom_data["TABLE_LIMITS"] = ""
+
+    # ── 3. Violations ──
+    if chart1 is not None and chart2 is not None:
+        all_v = []
+        for v in chart1.violations:
+            all_v.append([chart1_name, v.rule, f"第 {v.index + 1} 点", v.description])
+        for v in chart2.violations:
+            all_v.append([chart2_name, v.rule, f"第 {v.index + 1} 点", v.description])
+
+        if all_v:
+            viol_headers = ["图表", "规则", "位置", "描述"]
+            custom_data["TABLE_VIOLATIONS"] = _format_typst_table(viol_headers, all_v)
+        else:
+            custom_data["TABLE_VIOLATIONS"] = _format_typst_table(
+                ["结论"],
+                [["未检测到违规, 过程受控"]],
+            )
+    else:
+        custom_data["TABLE_VIOLATIONS"] = ""
+
+    # ── 4. Cpk Trend ──
+    if cpk_result is not None:
+        cpk_headers = ["指标", "值"]
+        cpk_rows = [
+            ["Cpk", f"{cpk_result.cpk:.4f}" if cpk_result.cpk is not None else "-"],
+            ["Cp", f"{cpk_result.cp:.4f}" if cpk_result.cp is not None else "-"],
+            ["Ppk", f"{cpk_result.ppk:.4f}" if cpk_result.ppk is not None else "-"],
+            ["USL", f"{cpk_result.usl:.4f}" if cpk_result.usl is not None else "无"],
+            ["LSL", f"{cpk_result.lsl:.4f}" if cpk_result.lsl is not None else "无"],
+            ["均值", f"{cpk_result.mean:.4f}"],
+        ]
+        custom_data["TABLE_CPK"] = _format_typst_table(cpk_headers, cpk_rows)
+    else:
+        custom_data["TABLE_CPK"] = _format_typst_table(
+            ["说明"],
+            [["未设置规格限, 跳过过程能力趋势分析"]],
+        )
+
+    data = ReportData(
+        module="SPC",
+        title="统计过程控制 (SPC) 分析报告",
+        chart_paths=chart_paths,
+        custom_data=custom_data,
+    )
+
+    return render_report("spc_report", output_path, data, config)
 
 
 def check_typst_available() -> bool:

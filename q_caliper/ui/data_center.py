@@ -274,7 +274,7 @@ class DataPreviewWidget(QWidget):
         """Update smart analysis button text based on current roles."""
         mapping = self.get_role_mapping()
         if all(r in mapping for r in ["测量值", "操作者", "零件"]):
-            self.smart_btn.setText("智能推荐: GRR")
+            self.smart_btn.setText("智能推荐: 量具分析")
             self.smart_btn.setIcon(FluentIcon.MARKET)
         elif "测量值" in mapping:
             self.smart_btn.setText("智能推荐: 正态分析")

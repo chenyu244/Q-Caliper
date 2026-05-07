@@ -59,7 +59,7 @@ class MainWindow(FluentWindow):
 
         self.addSubInterface(self.data_center, FluentIcon.HOME, "数据中心")
         self.addSubInterface(self.cpk_panel, FluentIcon.PIE_SINGLE, "正态分析")
-        self.addSubInterface(self.grr_panel, FluentIcon.PEOPLE, "GRR 分析")
+        self.addSubInterface(self.grr_panel, FluentIcon.PEOPLE, "量具分析")
         self.addSubInterface(self.msa_panel, FluentIcon.SPEED_HIGH, "MSA 分析")
         self.addSubInterface(self.spc_panel, FluentIcon.SPEED_MEDIUM, "SPC 分析")
         self.addSubInterface(self.doe_panel, FluentIcon.LAYOUT, "DOE 实验设计")
