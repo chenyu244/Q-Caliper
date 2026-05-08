@@ -1,14 +1,10 @@
 # Q-Caliper
 
-> 工程师为工程师打造的质量分析工具
+> 由工程师为工程师设计的开源质量分析工具
 
 ## 定位
 
-Q-Caliper 是一款面向质量工程师的开源桌面分析平台，旨在将制造业最常用的统计分析功能以现代化、数据优先（Data-First）的交互方式重新实现，并通过 Typst 引擎自动生成专业级 PDF 分析报告。
-
-> 核心设计理念是「Data-First」：工程师直接拖拽数据文件，系统自动识别列类型
-并点亮可用分析按钮，最终一键生成专业级 PDF 报告，让质量分析流程标准化、
-可追溯。
+Q-Caliper 是一款面向质量工程师的开源桌面分析平台。我们坚持 **「Data-First」** 的设计理念：工程师通过简单的拖拽即可完成数据加载，系统将自动识别数据类型并点亮匹配的分析模块，配合先进的 Typst 引擎一键生成专业级、可追溯的 PDF 分析报告，实现质量分析流程的标准化与自动化。
 
 ## 核心功能
 
@@ -17,7 +13,7 @@ Q-Caliper 是一款面向质量工程师的开源桌面分析平台，旨在将�
 | 第一阶段 MVP | Cpk/Ppk 计算、正态性检验、直方图报告 | ✅ 已完成 |
 | 第二阶段 MSA | GRR ANOVA 分析、偏差分析、线性分析 | ✅ 已完成 |
 | 第三阶段 SPC | XBar-R / I-MR 控制图、八大判异准则、Cpk 趋势 | ✅ 已完成 |
-| 第四阶段 DOE | 全因子/部分因子设计、因子效应图、Pareto 图、Typst 报告 | ✅ 已完成 |
+| 第四阶段 DOE | 全因子/部分因子设计、效应分析、Pareto 图 | ✅ 已完成 |
 
 ## 界面总览
 
@@ -52,7 +48,7 @@ Q-Caliper 是一款面向质量工程师的开源桌面分析平台，旨在将�
 ### 安装运行
 
 ```bash
-git clone https://github.com/your-username/Q-Caliper.git
+git clone https://github.com/chenyu244/Q-Caliper.git
 cd Q-Caliper
 
 python -m venv .venv
@@ -61,7 +57,7 @@ python -m venv .venv
 
 pip install -r requirements.txt
 python main.py
-# 首次运行会在 data/examples/ 下载示例数据集
+# 首次运行推荐在 data/examples/ 下载示例数据集试验
 # 选择左侧导航的任意模块，拖拽 data/examples/*.xlsx 开始分析
 ```
 
@@ -127,7 +123,8 @@ Q-Caliper/
 │   │       ├── cpk_report.typ       #   正态分析报告
 │   │       ├── grr_report.typ       #   量具分析报告
 │   │       ├── msa_report.typ       #   MSA 分析报告
-│   │       └── spc_report.typ       #   SPC 分析报告
+│   │       ├── spc_report.typ       #   SPC 分析报告
+│   │       └── doe_report.typ       #   DOE 实验设计报告
 │   │
 │   └── tests/                       # 测试套件
 │       ├── test_cpk.py
@@ -146,7 +143,11 @@ Q-Caliper/
 │
 └── docs/                            # 文档
     ├── 使用说明.md
-    └── 函数功能清单.md
+    ├── 函数功能清单.md
+    ├── qcaliper_capability_guide.typ # 过程能力深度指南
+    ├── qcaliper_msa_guide.typ        # MSA 分析深度指南
+    ├── qcaliper_spc_guide.typ        # SPC 分析深度指南
+    └── qcaliper_doe_guide.typ        # DOE 实验设计深度指南
 ```
 
 ## 示例数据
@@ -164,6 +165,13 @@ Q-Caliper/
 
 - [使用说明](docs/使用说明.md) — 安装、各模块操作流程、FAQ
 - [函数功能清单](docs/函数功能清单.md) — 核心 API、UI 类、报告引擎参考
+
+## 🤝 支持项目
+
+Q-Caliper 仍处于活跃开发阶段，如果你觉得它对你的工作有帮助：
+- ⭐ **点亮 Star**：这是对开发者最大的鼓励。
+- 📢 **分享建议**：推荐给同样深受统计分析困扰的同行。
+- 💬 **反馈问题**：欢迎提交 [Issue](https://github.com/chenyu244/Q-Caliper/issues) 提供改进建议。
 
 ## 免责声明
 

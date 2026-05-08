@@ -12,8 +12,6 @@
 
 #table(
   columns: (auto, auto),
-  inset: 8pt,
-  stroke: 0.5pt,
   align: (left, left),
   table.header([指标], [值]),
   {{SUMMARY_ROWS}}

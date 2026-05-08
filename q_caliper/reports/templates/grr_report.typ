@@ -41,8 +41,6 @@
 
 #table(
   columns: (auto, auto, auto),
-  inset: 8pt,
-  stroke: 0.5pt,
   table.header([指标], [可接受], [不可接受]),
   [%GRR], [< 10%], [> 30%],
   [%GRR (有条件)], [10% - 30%], [-],

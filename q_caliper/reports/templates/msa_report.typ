@@ -23,8 +23,6 @@
 
 #table(
   columns: (auto, auto, auto),
-  inset: 8pt,
-  stroke: 0.5pt,
   table.header([条件], [结论], [行动]),
   [p 值 >= 0.05], [无显著偏差], [偏差分析通过, 量具准确],
   [p 值 < 0.05], [存在显著偏差], [重新校准或调整量具],
@@ -61,8 +59,6 @@
 
 #table(
   columns: (auto, auto, auto),
-  inset: 8pt,
-  stroke: 0.5pt,
   table.header([条件], [结论], [行动]),
   [P/T 比 < 0.1], [线性可接受], [量具在整个量程内偏差一致],
   [P/T 比 0.1 - 0.3], [线性有条件接受], [根据应用重要性决定是否改善],

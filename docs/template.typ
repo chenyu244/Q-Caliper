@@ -18,8 +18,17 @@
 
   set par(leading: 1em, justify: true)
 
+  show heading: set block(above: 1.5em, below: 1em)
   show heading: set text(fill: navy)
   show link: set text(fill: blue)
+  
+  // 统一表格样式：斑马纹与边框
+  show table: set table(
+    inset: 8pt,
+    stroke: 0.5pt + gray,
+    fill: (x, y) => if y == 0 { luma(230) } else if calc.even(y) { white } else { luma(250) }
+  )
+
   show raw.where(block: true): set text(font: ("Consolas", "Microsoft YaHei"), size: 10pt)
   show raw.where(block: false): set text(font: ("Consolas", "Microsoft YaHei"), size: 9pt)
 

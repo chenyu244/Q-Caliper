@@ -449,5 +449,5 @@ Q-Caliper 内置了标准 $d_2$ 常数表，支持子组大小 $n$ 从 2 到 25 
 #align(center, text(9pt, gray)[
   Q-Caliper - 由工程师为工程师设计的开源质量分析工具\
   文档版本: v1.0 | 发布日期: 2025年5月\
-  源码: https://github.com/sheldon/qcaliper
+  源码: https://github.com/chenyu244/Q-Caliper
 ]))
