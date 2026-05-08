@@ -4,7 +4,7 @@
 #define MyAppName "Q-Caliper"
 #define MyAppVersion "1.0.0"
 #define MyAppPublisher "Q-Caliper"
-#define MyAppURL "http://hh.yuxtk.com:3030/sheldon/Q-caliper"
+#define MyAppURL "https://github.com/chenyu244/Q-Caliper"
 #define MyAppExeName "Q-Caliper.exe"
 
 ; Nuitka standalone 输出目录 (build.py 产出)
