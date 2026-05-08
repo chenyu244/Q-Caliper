@@ -58,6 +58,18 @@ def _escape_typst_content(text: str) -> str:
     )
 
 
+def to_roman(n: int) -> str:
+    """Convert integer to Roman numeral (1-10)."""
+    vals = [10, 9, 5, 4, 1]
+    syms = ["X", "IX", "V", "IV", "I"]
+    result = ""
+    for v, s in zip(vals, syms):
+        while n >= v:
+            result += s
+            n -= v
+    return result
+
+
 def _format_typst_table(headers: list[str], rows: list[list[str]]) -> str:
     """Helper to format a raw Typst table from headers and rows."""
     if not headers and not rows:
@@ -551,6 +563,125 @@ def generate_spc_report(
     )
 
     return render_report("spc_report", output_path, data, config)
+
+
+def generate_doe_report(
+    output_path: str,
+    design,
+    model=None,
+    response=None,
+    chart_paths: list[str] | None = None,
+    config: ReportConfig | None = None,
+) -> str:
+    """Generate a DOE analysis PDF report."""
+    import numpy as np
+
+    if chart_paths is None:
+        chart_paths = []
+
+    custom_data: dict[str, str] = {}
+
+    # ── 1. Data Summary ──
+    sum_headers = ["参数", "值"]
+    sum_rows = [
+        ["设计类型", design.design_type],
+        ["因子数", str(design.n_factors)],
+        ["运行次数", str(design.n_runs)],
+        ["因子名称", ", ".join(design.factor_names)],
+    ]
+    custom_data["TABLE_DATA_SUMMARY"] = _format_typst_table(sum_headers, sum_rows)
+
+    # ── Design Type Specific Info ──
+    is_fractional = "Fractional" in design.design_type
+    if is_fractional:
+        base_factors = design.n_factors - 1
+        base_names = design.factor_names[:base_factors]
+        interaction_str = " #sym.times ".join(base_names)
+        resolution = design.n_factors
+        alias_pairs = []
+        for i in range(base_factors):
+            others = [design.factor_names[j] for j in range(base_factors) if j != i]
+            others.append(design.factor_names[-1])
+            alias_pairs.append(f"  - *{design.factor_names[i]}* 与 {design.factor_names[-1]} 的交互别名 (即 {' #sym.times '.join(others)})")
+
+        aliasing_block = "\n".join(alias_pairs)
+        custom_data["DESIGN_TYPE_INFO"] = (
+            f"\n== 设计类型说明: 部分因子设计 (2^{{{design.n_factors}-1}})\n\n"
+            f"本报告采用 *半分式因子设计*, 仅需 {design.n_runs} 次实验即可估计 {design.n_factors} 个因子的主效应"
+            f" (全因子设计需要 {2 ** design.n_factors} 次)。\n\n"
+            f"*生成关系*: {design.factor_names[-1]} = {interaction_str}\n\n"
+            f"*设计分辨力*: Resolution {to_roman(resolution)} (主效应与 {resolution - 1} 阶交互混杂)\n\n"
+            f"*混杂结构 (Aliasing)*:\n"
+            f"{aliasing_block}\n\n"
+            f"*注意*: 由于采用部分因子设计, 部分效应存在混杂。"
+            f" 当某一因子效应显著时, 需结合工程知识判断是主效应还是交互效应的贡献。\n"
+        )
+    else:
+        custom_data["DESIGN_TYPE_INFO"] = (
+            "\n== 设计类型说明: 全因子设计 (2^{" + str(design.n_factors) + "})\n\n"
+            f"本报告采用 *全因子设计*, 共 {design.n_runs} 次实验, 可独立估计所有 {design.n_factors} 个主效应及其交互效应, "
+            f"无任何混杂 (Confounding)。\n\n"
+            f"*优势*: 所有效应均可独立估计, 结论可靠性最高。\n\n"
+            f"*适用场景*: 因子数较少 (通常 k #sym.lt.eq 5) 且需要分析交互效应时。\n"
+        )
+
+    # ── 2. Design Matrix ──
+    dm_headers = ["Run", "顺序", *design.factor_names]
+    dm_rows = []
+    for i in range(design.n_runs):
+        row = [str(i + 1), str(design.run_order[i] + 1)]
+        for val in design.design_matrix[i]:
+            row.append(f"{val:+.0f}")
+        dm_rows.append(row)
+    custom_data["TABLE_DESIGN_MATRIX"] = _format_typst_table(dm_headers, dm_rows)
+
+    # ── 3. Factor Effects ──
+    if model is not None:
+        effects = model.params[1:]
+        pvalues = model.pvalues[1:]
+        factor_names = design.factor_names
+
+        effect_headers = ["因子", "效应值", "回归系数", "t 值", "p 值", "显著性"]
+        effect_rows = []
+        for idx, name in enumerate(factor_names):
+            effect_val = effects[idx]
+            coef = model.params[idx + 1]
+            t_val = model.tvalues[idx + 1]
+            p_val = pvalues[idx]
+            sig = "显著" if p_val < 0.05 else "边际显著" if p_val < 0.10 else "不显著"
+            effect_rows.append([
+                name,
+                f"{effect_val:.4f}",
+                f"{coef:.4f}",
+                f"{t_val:.4f}",
+                f"{p_val:.4f}",
+                sig,
+            ])
+        custom_data["TABLE_EFFECTS"] = _format_typst_table(effect_headers, effect_rows)
+
+        # ── 4. Model Statistics ──
+        stat_headers = ["统计量", "值"]
+        stat_rows = [
+            ["R²", f"{model.rsquared:.4f}"],
+            ["R²-adjusted", f"{model.rsquared_adj:.4f}"],
+            ["F 统计量", f"{model.fvalue:.4f}"],
+            ["模型 p 值", f"{model.f_pvalue:.4f}"],
+            ["残差自由度", str(int(model.df_resid))],
+            ["MSE (残差均方)", f"{model.mse_resid:.4f}"],
+        ]
+        custom_data["TABLE_MODEL_STATS"] = _format_typst_table(stat_headers, stat_rows)
+    else:
+        custom_data["TABLE_EFFECTS"] = ""
+        custom_data["TABLE_MODEL_STATS"] = ""
+
+    data = ReportData(
+        module="DOE",
+        title="实验设计 (DOE) 分析报告",
+        chart_paths=chart_paths,
+        custom_data=custom_data,
+    )
+
+    return render_report("doe_report", output_path, data, config)
 
 
 def check_typst_available() -> bool:

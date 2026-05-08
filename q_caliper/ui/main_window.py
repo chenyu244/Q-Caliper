@@ -62,7 +62,7 @@ class MainWindow(FluentWindow):
         self.addSubInterface(self.grr_panel, FluentIcon.PEOPLE, "量具分析")
         self.addSubInterface(self.msa_panel, FluentIcon.SPEED_HIGH, "MSA 分析")
         self.addSubInterface(self.spc_panel, FluentIcon.SPEED_MEDIUM, "SPC 分析")
-        self.addSubInterface(self.doe_panel, FluentIcon.LAYOUT, "DOE 实验设计")
+        self.addSubInterface(self.doe_panel, FluentIcon.LAYOUT, "实验设计 (DOE)")
 
         self.navigationInterface.addSeparator()
 

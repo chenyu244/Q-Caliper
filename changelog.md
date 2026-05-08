@@ -1,3 +1,21 @@
+# Changelog (2026-05-08)
+
+## 实验设计模块 (DOE)
+- **UI 布局重构**:
+  - 合并 DoeInputCard + DoeResponseCard 为单一 DoeInputCard，左右并排布局，与其他模块风格统一。
+  - 输入卡片支持折叠/展开，标题行集成"导出 PDF"按钮。
+  - 新增"关注结果数"输入项，导出 Excel 时自动添加 [Q]_ 前缀结果列并提示用户填入实验结果。
+  - 图表尺寸从 (4.5, 3) 拉高至 (5, 4)，最小高度 280px。
+  - 新增 `set_selected_columns()` 方法支持数据中心列映射。
+  - 移除页面内设计矩阵表格，导出 Excel 后自动加载到数据中心，无需手动拖拽。
+- **报告模板新建 (`doe_report.typ`)**:
+  - 新建 5 章节报告：实验设计总结、设计矩阵、因子效应分析（OLS 回归结果 + 模型统计量）、图表分析、指标诊断与原理解释。
+  - 根据设计类型（全因子/部分因子）自动定制第 1 章内容：全因子强调无混杂优势；部分因子展示生成关系、设计分辨力 (Resolution)、混杂结构 (Aliasing) 及注意事项。
+  - 诊断章节包含因子效应计算原理、Pareto 排序说明、显著性判定规则和模型统计量解读。
+- **报告引擎**: 新增 `generate_doe_report()` 函数，输出 TABLE_DATA_SUMMARY / TABLE_DESIGN_MATRIX / TABLE_EFFECTS / TABLE_MODEL_STATS 4 张独立表格。
+- **导航标签**: "DOE 实验设计" 更名为 "实验设计 (DOE)"。
+- **Bug 修复**: 修复 `doe_report.typ` 中 `df_"resid"` 导致 Typst 编译报错 `unknown variable: df` 的问题，改为 `"df"_"resid"`。
+
 # Changelog (2026-05-07 晚间)
 
 ## 量具分析模块 (GRR / Gauge R&R)
