@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import matplotlib
 matplotlib.use("QtAgg")
-import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -17,7 +16,6 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
-    QGridLayout,
     QHBoxLayout,
     QLabel,
     QScrollArea,
@@ -225,7 +223,7 @@ class MsaInputCard(CardWidget):
 
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         """Pre-select columns based on roles from Data Center."""
-        if "测量值" in mapping and mapping["测量值"]:
+        if mapping.get("测量值"):
             col = mapping["测量值"][0]
             idx = self.bias_measure_combo.findText(col)
             if idx >= 0:
@@ -292,10 +290,7 @@ class MsaInputCard(CardWidget):
             # Calculate process variation from USL/LSL or fallback to 6*StdDev
             usl = self.usl_spin.value()
             lsl = self.lsl_spin.value()
-            if usl > -1e11 and lsl < 1e11:
-                pv = usl - lsl
-            else:
-                pv = float(np.std(meas_raw, ddof=1) * 6)
+            pv = (usl - lsl) if (usl > -1e11 and lsl < 1e11) else float(np.std(meas_raw, ddof=1) * 6)
 
             result = analyze_linearity(unique_refs, avg_means, pv)
 
@@ -342,7 +337,7 @@ class MsaInputCard(CardWidget):
             )
             InfoBar.success("导出成功", f"报告已保存至: {path}", parent=self, duration=5000)
         except Exception as e:
-            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{str(e)}", parent=self, duration=-1)
+            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{e!s}", parent=self, duration=-1)
         finally:
             for p in chart_paths:
                 Path(p).unlink(missing_ok=True)

@@ -36,23 +36,23 @@ class NormalityResult:
 @dataclass
 class CapabilityResult:
     """Cpk/Cmk/Ppk 计算结果 - 总是返回所有三个指标。
-    
+
     属性说明：
         mean: 数据均值
         std_within: 短期标准差（用于 Cpk 计算）
                    - subgroup_size > 1: R̄/d₂(极差法)
                    - subgroup_size = 1: MR̄/1.128(移动极差法)
         std_overall: 长期标准差（全样本，用于 Cmk 和 Ppk）
-        
+
         cpk: 过程能力指数（基于 std_within）
         cmk: 设备能力指数（基于 std_overall）
         ppk: 过程性能指数（基于 std_overall）
-        
+
         cp, pp: 不考虑中心偏移的指数
-        
+
         analysis_mode: 说明 Cpk 的计算方法 ("cpk_grouped" 或 "cpk_individual")
         num_subgroups: 子组数量
-        
+
         ppm_observed_total: 观测到的总 PPM
         ppm_expected_within_total: 组内预期的总 PPM
         ppm_expected_overall_total: 整体预期的总 PPM
@@ -138,17 +138,17 @@ def calculate_capability(
             subgroups = arr[:subgroup_size].reshape(1, -1)
         else:
             subgroups = arr[: n_subgroups * subgroup_size].reshape(-1, subgroup_size)
-        
+
         ranges = np.ptp(subgroups, axis=1)
-        bar_R = np.mean(ranges)
+        bar_r = np.mean(ranges)
         d2 = _d2_constant(subgroup_size)
-        std_within = float(bar_R / d2)
+        std_within = float(bar_r / d2)
     else:
         mode = "cpk_individual"
         moving_ranges = np.abs(np.diff(arr))
-        bar_MR = np.mean(moving_ranges) if len(moving_ranges) > 0 else 0
+        bar_mr = np.mean(moving_ranges) if len(moving_ranges) > 0 else 0
         d2_mr = 1.128
-        std_within = float(bar_MR / d2_mr)
+        std_within = float(bar_mr / d2_mr)
         n_subgroups = max(1, n - 1)
 
     # 2. 计算指标（如果提供了规格限）
@@ -158,17 +158,17 @@ def calculate_capability(
         pp = _calc_cp(usl, lsl, std_overall)
         ppk = _calc_cpk(mean, usl, lsl, std_overall)
         cmk = ppk
-        
+
         pct_above = _calc_pct_above(usl, mean, std_overall)
         pct_below = _calc_pct_below(lsl, mean, std_overall)
-        
+
         ppm_obs = 0
         if usl is not None:
             ppm_obs += np.sum(arr > usl)
         if lsl is not None:
             ppm_obs += np.sum(arr < lsl)
         ppm_obs = (ppm_obs / n) * 1e6
-        
+
         ppm_exp_within = (_calc_pct_above(usl, mean, std_within) + _calc_pct_below(lsl, mean, std_within)) * 1e6
         ppm_exp_overall = (pct_above + pct_below) * 1e6
     else:
@@ -244,10 +244,10 @@ def _d2_constant(n: int) -> float:
         7: 2.704, 8: 2.847, 9: 2.970, 10: 3.078,
         # 补充大子组查表值
         11: 3.173, 12: 3.258, 13: 3.336, 14: 3.407, 15: 3.472,
-        16: 3.532, 17: 3.588, 18: 3.640, 19: 3.689, 20: 3.735, 
+        16: 3.532, 17: 3.588, 18: 3.640, 19: 3.689, 20: 3.735,
         21: 3.778, 22: 3.819, 23: 3.858, 24: 3.895, 25: 3.931
     }
-    
+
     if n in d2_table:
         return d2_table[n]
     elif n > 25:

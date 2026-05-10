@@ -37,7 +37,7 @@ class TestCpkCalculation:
         rng = np.random.default_rng(42)
         data = rng.normal(loc=100, scale=2, size=100)
         result = calculate_capability(data, usl=110, lsl=90)
-        
+
         assert result.mean == pytest.approx(100, abs=0.5)
         assert hasattr(result, "cpk")
         assert hasattr(result, "cmk")
@@ -52,7 +52,7 @@ class TestCpkCalculation:
         # 生成 10 组，每组 5 个数据
         data = np.random.normal(100, 1, 50)
         result = calculate_capability(data, usl=105, lsl=95, subgroup_size=5)
-        
+
         assert result.analysis_mode == "cpk_grouped"
         assert result.num_subgroups == 10
         assert result.sample_size == 50
@@ -62,7 +62,7 @@ class TestCpkCalculation:
         """测试单值计算 (I-MR 方法)。"""
         data = np.random.normal(100, 1, 25)
         result = calculate_capability(data, usl=105, lsl=95, subgroup_size=1)
-        
+
         assert result.analysis_mode == "cpk_individual"
         assert result.num_subgroups == 24  # n-1
         assert result.cpk > 0
@@ -78,11 +78,11 @@ class TestCpkCalculation:
         # 1. 缺少规格限
         with pytest.raises(ValueError, match="必须至少指定 USL 或 LSL 其中之一"):
             calculate_capability([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
-        
+
         # 2. 数据点太少
         with pytest.raises(ValueError, match="至少需要 8 个数据点"):
             calculate_capability([1, 2, 3], usl=10)
-            
+
         # 3. 子组太少 (n=12, subgroup_size=10 -> n_subgroups=1 < 2)
         with pytest.raises(ValueError, match="至少需要 20 个数据点"):
             calculate_capability(np.ones(12), usl=10, subgroup_size=10)

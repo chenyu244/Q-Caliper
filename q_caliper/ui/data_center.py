@@ -15,7 +15,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
-    QLabel,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -23,13 +22,11 @@ from PySide6.QtWidgets import (
 )
 from qfluentwidgets import (
     BodyLabel,
-    CardWidget,
     FluentIcon,
     InfoBar,
     MessageBox,
     PrimaryPushButton,
     PushButton,
-    SubtitleLabel,
     TitleLabel,
 )
 
@@ -52,7 +49,7 @@ class DataPreviewWidget(QWidget):
         self.file_label = TitleLabel("未加载数据 (可将 Excel 拖拽至此)")
         self.file_label.setStyleSheet("font-size: 15px;")
         header_row.addWidget(self.file_label)
-        
+
         self.browse_btn = PushButton("浏览文件")
         self.browse_btn.setIcon(FluentIcon.FOLDER)
         self.browse_btn.clicked.connect(self._browse_file)
@@ -107,11 +104,11 @@ class DataPreviewWidget(QWidget):
                 font-size: 12px;
             }
         """)
-        
+
         # 信号连接
         self.table.horizontalHeader().sectionDoubleClicked.connect(self._edit_header)
         self.table.itemChanged.connect(self._on_item_changed)
-        
+
         layout.addWidget(self.table)
 
     def set_sync_time(self, time_dt: datetime | None = None) -> None:
@@ -153,23 +150,23 @@ class DataPreviewWidget(QWidget):
     def _edit_header(self, logical_index: int) -> None:
         if self.table.columnCount() == 0:
             return
-        
+
         item = self.table.horizontalHeaderItem(logical_index)
         current_role = item.text() if item else "未分类"
-        
+
         roles = ["测量值", "操作者", "零件", "时间", "因子", "未分类"]
         new_role, ok = QInputDialog.getItem(
-            self, "修改数据角色", "请选择该列的数据角色:", roles, 
+            self, "修改数据角色", "请选择该列的数据角色:", roles,
             current=roles.index(current_role) if current_role in roles else 5,
             editable=False
         )
-        
+
         if ok and new_role:
             if item:
                 item.setText(new_role)
             else:
                 self.table.setHorizontalHeaderItem(logical_index, QTableWidgetItem(new_role))
-            
+
             # 修改角色只同步状态，静默处理
             self._sync_file(silent=True)
             self._update_smart_btn()
@@ -178,21 +175,21 @@ class DataPreviewWidget(QWidget):
     def _on_item_changed(self, item: QTableWidgetItem) -> None:
         if self._loading or self._full_df is None:
             return
-            
+
         row = item.row()
         col = item.column()
         val = item.text()
-        
+
         # 暂时关闭信号避免递归
         self.table.blockSignals(True)
-        
+
         try:
             if row == 0:
                 # 修改列名
                 new_cols = list(self._full_df.columns)
                 new_cols[col] = val
                 self._full_df.columns = new_cols
-                
+
                 # 加粗显示列名
                 font = item.font()
                 font.setBold(True)
@@ -209,9 +206,9 @@ class DataPreviewWidget(QWidget):
                         converted_val = int(val)
                 except ValueError:
                     converted_val = val
-                
+
                 self._full_df.iloc[row - 1, col] = converted_val
-                
+
             # 自动保存应该静默进行，避免频繁弹窗干扰用户
             self._sync_file(silent=True)
         except Exception as e:
@@ -222,7 +219,7 @@ class DataPreviewWidget(QWidget):
     def _sync_file(self, silent: bool = False) -> None:
         if self._full_df is None:
             return
-            
+
         parent = self.parent()
         while parent and not hasattr(parent, "sync_file"):
             parent = parent.parent()
@@ -238,13 +235,13 @@ class DataPreviewWidget(QWidget):
     def _goto_analysis(self) -> None:
         mapping = self.get_role_mapping()
         main_win = self.window()
-        
+
         target_panel = None
         if all(r in mapping for r in ["测量值", "操作者", "零件"]):
             target_panel = getattr(main_win, "grr_panel", None)
         elif "测量值" in mapping:
             target_panel = getattr(main_win, "cpk_panel", None)
-        
+
         if target_panel and hasattr(main_win, "switchTo"):
             if hasattr(target_panel, "set_selected_columns"):
                 target_panel.set_selected_columns(mapping)
@@ -287,13 +284,13 @@ class DataPreviewWidget(QWidget):
         self._loading = True
         self.table.blockSignals(True)
         self._full_df = df.copy() # 保存全量数据副本
-        
+
         self.file_label.setText(filename)
         n_rows, n_cols = df.shape
         self.row_label.setText(f"{n_rows} 行 x {n_cols} 列")
 
         self.table.clear()
-        
+
         # 智能推断数据角色
         roles = []
         for col in df.columns:
@@ -310,7 +307,7 @@ class DataPreviewWidget(QWidget):
                 roles.append("因子")
             else:
                 roles.append("未分类")
-                
+
         max_preview_rows = min(n_rows, 100)
         self.table.setRowCount(max_preview_rows + 1)
         self.table.setColumnCount(n_cols)
@@ -379,7 +376,7 @@ class DataCenterWidget(QWidget):
             if not p.name.startswith("[Q]_"):
                 target_name = f"[Q]_{p.name}"
                 target_path = p.with_name(target_name)
-                
+
                 if target_path.exists():
                     title = "发现已存在的分析副本"
                     content = f"文件夹中已存在分析副本 '{target_path.name}'。\n是否用当前选中的源文件覆盖它？(注意：覆盖后将丢失之前在副本中的所有修改)"
@@ -388,7 +385,7 @@ class DataCenterWidget(QWidget):
                     w.cancelButton.setText("取消")
                     if not w.exec():
                         return # 用户取消
-                
+
                 # 无论是新生成还是确认覆盖，都进行拷贝
                 shutil.copy2(path, target_path)
 
@@ -427,7 +424,7 @@ class DataCenterWidget(QWidget):
 
         try:
             current_mtime = os.path.getmtime(self.filepath)
-            
+
             # Check for external modification (with 1 second tolerance)
             if hasattr(self, "_last_modified_time") and current_mtime > self._last_modified_time + 1:
                 title = "检测到外部修改"
@@ -445,10 +442,10 @@ class DataCenterWidget(QWidget):
                 current_df.to_csv(self.filepath, index=False)
             else:
                 current_df.to_excel(self.filepath, engine="openpyxl", index=False)
-            
+
             self.df = current_df
             self._last_modified_time = os.path.getmtime(self.filepath)
-            
+
             # Update other panels
             main_win = self.window()
             if hasattr(main_win, "cpk_panel"):
@@ -466,7 +463,7 @@ class DataCenterWidget(QWidget):
 
             if not silent:
                 InfoBar.success("同步成功", "界面修改已保存至文件并更新所有分析模块", parent=self, duration=2000)
-            
+
         except Exception as e:
             InfoBar.error("同步失败", str(e), parent=self)
 
@@ -501,7 +498,7 @@ class DataCenterWidget(QWidget):
             # Clean empty rows and columns
             df = df.dropna(how="all", axis=0)
             df = df.dropna(how="all", axis=1)
-            
+
             # Save the cleaned dataframe back to the [Q]_ file
             if suffix == ".csv":
                 df.to_csv(file_path, index=False)
@@ -510,6 +507,6 @@ class DataCenterWidget(QWidget):
 
             return df
         except Exception as e:
-            InfoBar.error("数据清洗失败", f"无法自动识别表头或清洗数据: {str(e)}", parent=self)
+            InfoBar.error("数据清洗失败", f"无法自动识别表头或清洗数据: {e!s}", parent=self)
             return None
 

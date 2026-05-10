@@ -191,7 +191,7 @@ class DoeInputCard(CardWidget):
         self.response_combo.addItems([str(c) for c in numeric_cols])
 
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
-        if "响应" in mapping and mapping["响应"]:
+        if mapping.get("响应"):
             col = mapping["响应"][0]
             idx = self.response_combo.findText(col)
             if idx >= 0:
@@ -309,7 +309,7 @@ class DoeInputCard(CardWidget):
             )
             InfoBar.success("导出成功", f"报告已保存至: {path}", parent=self, duration=5000)
         except Exception as e:
-            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{str(e)}", parent=self, duration=-1)
+            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{e!s}", parent=self, duration=-1)
         finally:
             for p in chart_paths:
                 Path(p).unlink(missing_ok=True)

@@ -10,9 +10,9 @@ import numpy as np
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from q_caliper.core.spc import ControlLimits, detect_violations, imr_chart, xbar_r_chart
-from q_caliper.core.cpk import calculate_capability
-from q_caliper.reports.report_engine import generate_spc_report
+from q_caliper.core.cpk import calculate_capability  # noqa: E402
+from q_caliper.core.spc import ControlLimits, detect_violations, imr_chart, xbar_r_chart  # noqa: E402
+from q_caliper.reports.report_engine import generate_spc_report  # noqa: E402
 
 
 def test_xbar_r_basic() -> None:

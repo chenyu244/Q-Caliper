@@ -63,7 +63,7 @@ def to_roman(n: int) -> str:
     vals = [10, 9, 5, 4, 1]
     syms = ["X", "IX", "V", "IV", "I"]
     result = ""
-    for v, s in zip(vals, syms):
+    for v, s in zip(vals, syms, strict=False):
         while n >= v:
             result += s
             n -= v
@@ -112,8 +112,7 @@ def render_report(
         RuntimeError: If Typst compilation fails.
     """
     import shutil
-    import tempfile
-    
+
     if config is None:
         config = ReportConfig()
 
@@ -123,13 +122,13 @@ def render_report(
 
     # Create an isolated temporary workspace for Typst compilation
     tmp_dir = Path(tempfile.mkdtemp(prefix="qcaliper_report_"))
-    
+
     try:
         # 1. Copy the main unified template if it exists
         unified_template = TEMPLATE_DIR / "template.typ"
         if unified_template.exists():
             shutil.copy2(unified_template, tmp_dir / "template.typ")
-            
+
         # 2. Copy all chart images into the workspace and update their paths
         new_chart_paths = []
         for i, p in enumerate(data.chart_paths):
@@ -178,18 +177,18 @@ def _render_template(template_path: Path, data: ReportData, config: ReportConfig
     for tbl in data.tables:
         headers = tbl.get("headers", [])
         rows = tbl.get("rows", [])
-        
+
         cols_str = "(" + ", ".join(["auto"] * len(headers)) + ")"
         block = f"#table(\n  columns: {cols_str},\n  inset: 8pt,\n  stroke: 0.5pt,\n"
-        
+
         if headers:
             header_str = ", ".join([f"[{_escape_typst_content(h)}]" for h in headers])
             block += f"  table.header({header_str}),\n"
-            
+
         for row in rows:
             row_str = ", ".join([f"[{_escape_typst_content(v)}]" for v in row])
             block += f"  {row_str},\n"
-            
+
         block += ")\n"
         table_blocks.append(block)
     template = template.replace("{{TABLES}}", "\n\n".join(table_blocks))
@@ -211,7 +210,7 @@ def generate_cpk_report(
 ) -> str:
     """Generate a Cpk analysis PDF report."""
     sg_size = int(cpk_result.sample_size / cpk_result.num_subgroups) if cpk_result.num_subgroups and cpk_result.analysis_mode == "cpk_grouped" else 1
-    
+
     basic_headers = ["参数", "统计值", "参数", "统计值"]
     basic_rows = [
         ["样本数量 (N)", str(cpk_result.sample_size), "规格上限 (USL)", str(cpk_result.usl) if cpk_result.usl is not None else "无"],
@@ -219,18 +218,18 @@ def generate_cpk_report(
         ["样本均值 (Mean)", f"{cpk_result.mean:.4f}", "总体标准差 (长期)", f"{cpk_result.std_overall:.4f}"],
         ["目标值", "-", "组内标准差 (短期)", f"{cpk_result.std_within:.4f}"],
     ]
-    
+
     norm_headers = ["检验方法", "统计量", "P 值", "显著性水平", "结论"]
     norm_rows = [
         [
-            norm_result.test_name, 
-            f"{norm_result.statistic:.4f}", 
-            f"{norm_result.p_value:.4f}", 
-            "α = 0.05", 
+            norm_result.test_name,
+            f"{norm_result.statistic:.4f}",
+            f"{norm_result.p_value:.4f}",
+            "α = 0.05",
             "服从正态分布" if norm_result.is_normal else "非正态分布 (建议调查特殊变异)"
         ]
     ]
-    
+
     cap_headers = ["指标类型", "指标名称", "计算值"]
     cap_rows = [
         ["过程能力 (短期潜力)", "Cpk", f"{cpk_result.cpk:.4f}" if cpk_result.cpk is not None else "-"],
@@ -239,7 +238,7 @@ def generate_cpk_report(
         ["过程性能 (长期表现)", "Pp", f"{cpk_result.pp:.4f}" if cpk_result.pp is not None else "-"],
         ["设备能力 (硬件精度)", "Cmk", f"{cpk_result.cmk:.4f}" if cpk_result.cmk is not None else "-"],
     ]
-    
+
     ppm_headers = ["性能类别", "预期/观测值 (PPM)"]
     ppm_rows = [
         ["实际观测缺陷率", f"{cpk_result.ppm_observed_total:.2f}"],
@@ -574,7 +573,6 @@ def generate_doe_report(
     config: ReportConfig | None = None,
 ) -> str:
     """Generate a DOE analysis PDF report."""
-    import numpy as np
 
     if chart_paths is None:
         chart_paths = []

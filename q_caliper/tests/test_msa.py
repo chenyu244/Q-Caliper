@@ -6,12 +6,13 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import pytest
 
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from q_caliper.core.msa import analyze_bias, analyze_linearity
-from q_caliper.reports.report_engine import generate_msa_report
+from q_caliper.core.msa import analyze_bias, analyze_linearity  # noqa: E402
+from q_caliper.reports.report_engine import generate_msa_report  # noqa: E402
 
 
 def test_no_bias() -> None:
@@ -54,11 +55,8 @@ def test_proportional_bias() -> None:
 
 
 def test_too_few_points() -> None:
-    try:
+    with pytest.raises(ValueError):
         analyze_linearity([1, 2], [1, 2], process_variation=1)
-        assert False, "Should have raised ValueError"
-    except ValueError:
-        pass
 
 
 def test_msa_report_bias_only() -> None:

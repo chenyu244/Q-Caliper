@@ -1,15 +1,18 @@
 import sys
 from pathlib import Path
+
 import matplotlib.pyplot as plt
 
 # Add the project root to the path so we can import q_caliper
 project_root = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(project_root))
 
-from q_caliper.reports.report_engine import generate_cpk_report, generate_grr_report
-from q_caliper.core.cpk import CapabilityResult, NormalityResult
-from q_caliper.core.grr import GrrResult, AnovaRow
-import numpy as np
+import numpy as np  # noqa: E402
+
+from q_caliper.core.cpk import CapabilityResult, NormalityResult  # noqa: E402
+from q_caliper.core.grr import AnovaRow, GrrResult  # noqa: E402
+from q_caliper.reports.report_engine import generate_cpk_report, generate_grr_report  # noqa: E402
+
 
 def test_cpk():
     cpk_result = CapabilityResult(
@@ -30,7 +33,7 @@ def test_cpk():
     try:
         out = generate_cpk_report("test_cpk_out.pdf", cpk_result, norm_result, str(img_path))
         print("Cpk report success! PDF generated at:", out)
-    except Exception as e:
+    except Exception:
         import traceback
         print("Error during Cpk generation:")
         traceback.print_exc()
@@ -79,7 +82,7 @@ def test_grr():
     try:
         out = generate_grr_report("test_grr_out.pdf", grr_result, [str(img_path)])
         print("GRR report success! PDF generated at:", out)
-    except Exception as e:
+    except Exception:
         import traceback
         print("Error during GRR generation:")
         traceback.print_exc()

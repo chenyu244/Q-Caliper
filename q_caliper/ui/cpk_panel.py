@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import matplotlib
 matplotlib.use("QtAgg")
-import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -16,16 +15,11 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
-    QFormLayout,
     QGridLayout,
     QHBoxLayout,
     QLabel,
-    QSplitter,
-    QTableWidget,
-    QTableWidgetItem,
     QVBoxLayout,
     QWidget,
-    QHeaderView,
     QSizePolicy,
 )
 from qfluentwidgets import (
@@ -77,7 +71,7 @@ class ColumnMappingCard(CardWidget):
 
         # Row 0: Labels
         form_layout.addWidget(QLabel("测量数据列:"), 0, 0)
-        
+
         spec_lbl_layout = QHBoxLayout()
         spec_lbl_layout.setContentsMargins(0, 0, 0, 0)
         spec_lbl_layout.addWidget(QLabel("规格限 (LSL / USL):"))
@@ -148,7 +142,7 @@ class ColumnMappingCard(CardWidget):
         self.calc_btn.setFixedHeight(32)
         self.calc_btn.clicked.connect(self._on_calculate)
         btn_layout.addWidget(self.calc_btn)
-        
+
         self.report_btn = PushButton("导出 PDF")
         self.report_btn.setIcon(FluentIcon.PRINT)
         self.report_btn.setFixedWidth(120)
@@ -156,7 +150,7 @@ class ColumnMappingCard(CardWidget):
         self.report_btn.clicked.connect(self._on_export_pdf)
         self.report_btn.setEnabled(False)
         btn_layout.addWidget(self.report_btn)
-        
+
         form_layout.addLayout(btn_layout, 0, 3, 2, 1, Qt.AlignmentFlag.AlignVCenter)
         form_layout.setColumnStretch(1, 1)
 
@@ -166,34 +160,34 @@ class ColumnMappingCard(CardWidget):
         from qfluentwidgets import RoundMenu, Action
         if self.df is None:
             return
-            
+
         col = self.measure_combo.currentText()
         if not col:
             return
-            
+
         data = self.df[col].dropna().values
         if len(data) == 0:
             return
-            
+
         mean = np.mean(data)
         std = np.std(data, ddof=1)
-        
+
         menu = RoundMenu(parent=self.magic_btn)
-        
+
         actions = [
             ("±3 Sigma (99.7%)", mean + 3*std, mean - 3*std),
             ("±6 Sigma (精密)", mean + 6*std, mean - 6*std),
             ("全范围 (Max/Min)", np.max(data), np.min(data)),
             ("重置规格", -1e12, -1e12),
         ]
-        
+
         for text, usl, lsl in actions:
             act = Action(text, self)
             # 注意：triggered 信号会发送一个 bool 类型的 checked 参数，
             # 如果不显式接收，它会覆盖 lambda 中的第一个默认参数 u
-            act.triggered.connect(lambda checked, u=usl, l=lsl, t=text: self._apply_spec(u, l, t))
+            act.triggered.connect(lambda checked, u=usl, low=lsl, t=text: self._apply_spec(u, low, t))
             menu.addAction(act)
-            
+
         menu.exec(self.magic_btn.mapToGlobal(self.magic_btn.rect().bottomLeft()))
 
     def _apply_spec(self, usl: float, lsl: float, text: str = "智能推荐") -> None:
@@ -209,7 +203,7 @@ class ColumnMappingCard(CardWidget):
 
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         """Pre-select measurement column based on roles from Data Center."""
-        if "测量值" in mapping and mapping["测量值"]:
+        if mapping.get("测量值"):
             col = mapping["测量值"][0]
             index = self.measure_combo.findText(col)
             if index >= 0:
@@ -253,29 +247,28 @@ class ColumnMappingCard(CardWidget):
 
     def _on_export_pdf(self) -> None:
         from q_caliper.reports.report_engine import generate_cpk_report
-        from qfluentwidgets import MessageBox
-        
+
         parent = self.parent()
         while parent and not isinstance(parent, CpkPanelWidget):
             parent = parent.parent()
-        
+
         if not parent or parent.last_result is None:
             return
-            
+
         path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "正态分析报告.pdf", "PDF 文件 (*.pdf)")
         if not path:
             return
-            
+
         try:
             # 使用绝对路径避免路径问题
             tmp_img = str(Path("tmp_capability.png").resolve())
             parent.histogram.figure.savefig(tmp_img, dpi=120)
-            
+
             generate_cpk_report(path, parent.last_result, parent.last_norm, tmp_img)
             InfoBar.success("导出成功", f"报告已保存至: {path}", parent=self, duration=5000)
         except Exception as e:
             # 使用 InfoBar 显示长效错误，不阻塞 UI 线程
-            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{str(e)}", parent=self, duration=-1)
+            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{e!s}", parent=self, duration=-1)
 
 
 class HistogramWidget(CardWidget):
@@ -297,7 +290,7 @@ class HistogramWidget(CardWidget):
 
     def plot(self, data: np.ndarray, norm_result, cpk_result, col_name: str) -> None:
         self.figure.clear()
-        
+
         # 调整布局留出右侧空间给统计框, 使用 1x2 布局
         gs = self.figure.add_gridspec(1, 2, width_ratios=[4, 1.2], wspace=0.1)
         ax = self.figure.add_subplot(gs[0])
@@ -309,11 +302,11 @@ class HistogramWidget(CardWidget):
         # 2. 绘制正态拟合
         xmin, xmax = ax.get_xlim()
         x = np.linspace(min(data.min(), xmin), max(data.max(), xmax), 300)
-        
+
         # 整体正态曲线 (实线)
         y_overall = (1 / (cpk_result.std_overall * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - cpk_result.mean) / cpk_result.std_overall) ** 2)
         ax.plot(x, y_overall, color="#E74C3C", linewidth=1.5, label="整体正态")
-        
+
         # 组内正态曲线 (虚线)
         y_within = (1 / (cpk_result.std_within * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - cpk_result.mean) / cpk_result.std_within) ** 2)
         ax.plot(x, y_within, color="#27AE60", linestyle="--", linewidth=1.5, label="组内正态")
@@ -331,11 +324,11 @@ class HistogramWidget(CardWidget):
         ax.legend(loc="upper left", fontsize=9)
         ax.spines["top"].set_visible(False)
         ax.spines["right"].set_visible(False)
-        
+
         # 4. 统计信息文本框 (右侧)
         ax_stats = self.figure.add_subplot(gs[1])
         ax_stats.axis("off")
-        
+
         stats_text = (
             f"过程数据\n"
             f"LSL: {cpk_result.lsl if cpk_result.lsl is not None else '无':>8}\n"
@@ -346,14 +339,14 @@ class HistogramWidget(CardWidget):
             f"标准差(整体): {cpk_result.std_overall:.4f}\n"
             f"标准差(组内): {cpk_result.std_within:.4f}\n"
         )
-        
+
         if cpk_result.cpk is not None:
             stats_text += (
                 f"\n能力指标 (组内 / 整体)\n"
                 f"Cp : {cpk_result.cp:<5.2f}    Pp : {cpk_result.pp:<5.2f}\n"
                 f"Cpk: {cpk_result.cpk:<5.2f}    Ppk: {cpk_result.ppk:<5.2f}\n"
             )
-            
+
         ax_stats.text(0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.6)
 
         self.figure.tight_layout()

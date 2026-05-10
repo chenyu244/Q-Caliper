@@ -7,7 +7,6 @@ import contextlib
 
 import matplotlib
 matplotlib.use("QtAgg")
-import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
 from pathlib import Path
@@ -23,7 +22,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QScrollArea,
     QSpinBox,
-    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QVBoxLayout,
@@ -220,7 +218,7 @@ class SpcInputCard(CardWidget):
 
         for text, usl, lsl in actions:
             act = Action(text, self)
-            act.triggered.connect(lambda checked, u=usl, l=lsl, t=text: self._apply_spec(u, l, t))
+            act.triggered.connect(lambda checked, u=usl, low=lsl, t=text: self._apply_spec(u, low, t))
             menu.addAction(act)
 
         menu.exec(self.magic_btn.mapToGlobal(self.magic_btn.rect().bottomLeft()))
@@ -238,7 +236,7 @@ class SpcInputCard(CardWidget):
 
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         """Pre-select columns based on roles from Data Center."""
-        if "测量值" in mapping and mapping["测量值"]:
+        if mapping.get("测量值"):
             col = mapping["测量值"][0]
             idx = self.measure_combo.findText(col)
             if idx >= 0:
@@ -331,7 +329,7 @@ class SpcInputCard(CardWidget):
             )
             InfoBar.success("导出成功", f"报告已保存至: {path}", parent=self, duration=5000)
         except Exception as e:
-            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{str(e)}", parent=self, duration=-1)
+            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{e!s}", parent=self, duration=-1)
         finally:
             for p in chart_paths:
                 Path(p).unlink(missing_ok=True)

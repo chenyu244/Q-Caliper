@@ -5,13 +5,12 @@ from __future__ import annotations
 
 import matplotlib
 matplotlib.use("QtAgg")
-import matplotlib.font_manager as fm
 import numpy as np
 import pandas as pd
 from pathlib import Path
 from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
-from PySide6.QtCore import Qt, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
@@ -180,17 +179,17 @@ class GrrInputCard(CardWidget):
 
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         """Pre-select columns based on roles from Data Center."""
-        if "测量值" in mapping and mapping["测量值"]:
+        if mapping.get("测量值"):
             idx = self.measure_combo.findText(mapping["测量值"][0])
             if idx >= 0:
                 self.measure_combo.setCurrentIndex(idx)
 
-        if "操作者" in mapping and mapping["操作者"]:
+        if mapping.get("操作者"):
             idx = self.operator_combo.findText(mapping["操作者"][0])
             if idx >= 0:
                 self.operator_combo.setCurrentIndex(idx)
 
-        if "零件" in mapping and mapping["零件"]:
+        if mapping.get("零件"):
             idx = self.part_combo.findText(mapping["零件"][0])
             if idx >= 0:
                 self.part_combo.setCurrentIndex(idx)
@@ -281,7 +280,7 @@ class GrrInputCard(CardWidget):
             generate_grr_report(path, parent.last_result, chart_paths)
             InfoBar.success("导出成功", f"报告已保存至: {path}", parent=self, duration=5000)
         except Exception as e:
-            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{str(e)}", parent=self, duration=-1)
+            InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{e!s}", parent=self, duration=-1)
         finally:
             for i in range(len(chart_paths)):
                 Path(f"tmp_grr_chart_{i}.png").unlink(missing_ok=True)
