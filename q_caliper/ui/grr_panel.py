@@ -35,7 +35,12 @@ from qfluentwidgets import (
     TitleLabel,
 )
 
-from q_caliper.core.grr import calculate_grr, validate_grr_data
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+from q_caliper.core.grr import calculate_grr, validate_grr_data, GrrResult
 
 
 def _setup_matplotlib_font() -> None:
@@ -359,7 +364,7 @@ class GrrChartsDashboard(QWidget):
 
         self.figures = [self.fig1, self.fig2, self.fig3, self.fig4, self.fig5, self.fig6]
 
-    def plot_all(self, result, part_names: list[str], operator_names: list[str]) -> None:
+    def plot_all(self, result: GrrResult, part_names: list[str], operator_names: list[str]) -> None:
         arr = result.raw_data
         n_parts = result.n_parts
         n_ops = result.n_operators
@@ -371,11 +376,19 @@ class GrrChartsDashboard(QWidget):
         self._plot_interaction(self.fig5, self.canvas5, arr, n_parts, n_ops, part_names, operator_names)
         self._plot_variance_contribution(self.fig6, self.canvas6, result)
 
-    def _plot_by_part(self, fig, canvas, arr, n_parts, n_ops, part_names):
+    def _plot_by_part(
+        self,
+        fig: Figure,
+        canvas: FigureCanvas,
+        arr: npt.NDArray[np.float64],
+        n_parts: int,
+        n_ops: int,
+        part_names: list[str],
+    ) -> None:
         fig.clear()
         ax = fig.add_subplot(111)
         part_data = [arr[i, :, :].flatten() for i in range(n_parts)]
-        bp = ax.boxplot(part_data, patch_artist=True, labels=part_names[:n_parts])
+        bp = ax.boxplot(part_data, patch_artist=True, labels=part_names[:n_parts])  # type: ignore
         colors = [
             "#4A90D9",
             "#50C878",
@@ -398,11 +411,19 @@ class GrrChartsDashboard(QWidget):
         fig.tight_layout()
         canvas.draw()
 
-    def _plot_by_operator(self, fig, canvas, arr, n_parts, n_ops, operator_names):
+    def _plot_by_operator(
+        self,
+        fig: Figure,
+        canvas: FigureCanvas,
+        arr: npt.NDArray[np.float64],
+        n_parts: int,
+        n_ops: int,
+        operator_names: list[str],
+    ) -> None:
         fig.clear()
         ax = fig.add_subplot(111)
         op_data = [arr[:, j, :].flatten() for j in range(n_ops)]
-        bp = ax.boxplot(op_data, patch_artist=True, labels=operator_names[:n_ops])
+        bp = ax.boxplot(op_data, patch_artist=True, labels=operator_names[:n_ops])  # type: ignore
         colors = ["#4A90D9", "#E74C3C", "#2ECC71", "#F39C12", "#9B59B6"]
         for i, patch in enumerate(bp["boxes"]):
             patch.set_facecolor(colors[i % len(colors)])
@@ -413,7 +434,7 @@ class GrrChartsDashboard(QWidget):
         fig.tight_layout()
         canvas.draw()
 
-    def _plot_operator_control(self, fig, canvas, result, operator_names):
+    def _plot_operator_control(self, fig: Figure, canvas: FigureCanvas, result: GrrResult, operator_names: list[str]) -> None:
         fig.clear()
         ax = fig.add_subplot(111)
         means = result.operator_means
@@ -431,7 +452,7 @@ class GrrChartsDashboard(QWidget):
         fig.tight_layout()
         canvas.draw()
 
-    def _plot_part_control(self, fig, canvas, result, part_names):
+    def _plot_part_control(self, fig: Figure, canvas: FigureCanvas, result: GrrResult, part_names: list[str]) -> None:
         fig.clear()
         ax = fig.add_subplot(111)
         means = result.part_means
@@ -449,7 +470,16 @@ class GrrChartsDashboard(QWidget):
         fig.tight_layout()
         canvas.draw()
 
-    def _plot_interaction(self, fig, canvas, arr, n_parts, n_ops, part_names, operator_names):
+    def _plot_interaction(
+        self,
+        fig: Figure,
+        canvas: FigureCanvas,
+        arr: npt.NDArray[np.float64],
+        n_parts: int,
+        n_ops: int,
+        part_names: list[str],
+        operator_names: list[str],
+    ) -> None:
         fig.clear()
         ax = fig.add_subplot(111)
         cell_means = np.mean(arr, axis=2)
@@ -473,7 +503,7 @@ class GrrChartsDashboard(QWidget):
         fig.tight_layout()
         canvas.draw()
 
-    def _plot_variance_contribution(self, fig, canvas, result):
+    def _plot_variance_contribution(self, fig: Figure, canvas: FigureCanvas, result: GrrResult) -> None:
         fig.clear()
         gs = fig.add_gridspec(1, 2, width_ratios=[3, 1.8], wspace=0.15)
         ax = fig.add_subplot(gs[0])
@@ -544,7 +574,7 @@ class GrrPanelWidget(QWidget):
         super().__init__(parent)
         self.setObjectName("grr_panel")
         self.df: pd.DataFrame | None = None
-        self.last_result = None
+        self.last_result: GrrResult | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -578,6 +608,6 @@ class GrrPanelWidget(QWidget):
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         self.input_card.set_selected_columns(mapping)
 
-    def show_results(self, result, part_names: list[str], operator_names: list[str]) -> None:
+    def show_results(self, result: GrrResult, part_names: list[str], operator_names: list[str]) -> None:
         self.last_result = result
         self.charts.plot_all(result, part_names, operator_names)

@@ -6,8 +6,19 @@ import sys
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import typst
+
+if TYPE_CHECKING:
+    import numpy as np
+    import numpy.typing as npt
+
+    from q_caliper.core.cpk import CapabilityResult, NormalityResult
+    from q_caliper.core.doe import DoeDesign
+    from q_caliper.core.grr import GrrResult
+    from q_caliper.core.msa import BiasResult, LinearResult
+    from q_caliper.core.spc import SpcChartResult
 
 
 def _get_template_dir() -> Path:
@@ -198,8 +209,8 @@ def _render_template(template_path: Path, data: ReportData, config: ReportConfig
 
 def generate_cpk_report(
     output_path: str,
-    cpk_result,
-    norm_result,
+    cpk_result: CapabilityResult,
+    norm_result: NormalityResult,
     chart_path: str,
     config: ReportConfig | None = None,
 ) -> str:
@@ -269,7 +280,7 @@ def generate_cpk_report(
 
 def generate_grr_report(
     output_path: str,
-    grr_result,
+    grr_result: GrrResult,
     chart_paths: list[str],
     config: ReportConfig | None = None,
 ) -> str:
@@ -372,17 +383,19 @@ def generate_grr_report(
 
 def generate_msa_report(
     output_path: str,
-    bias_result=None,
-    linear_result=None,
+    bias_result: BiasResult | None = None,
+    linear_result: LinearResult | None = None,
     chart_paths: list[str] | None = None,
-    bias_data=None,
+    bias_data: npt.ArrayLike | None = None,
     bias_col_name: str = "",
-    linear_refs=None,
-    linear_means=None,
+    linear_refs: npt.ArrayLike | None = None,
+    linear_means: npt.ArrayLike | None = None,
     process_variation: float | None = None,
     config: ReportConfig | None = None,
 ) -> str:
     """Generate an MSA analysis PDF report following Minitab output conventions."""
+    import numpy as np
+
     if chart_paths is None:
         chart_paths = []
 
@@ -390,11 +403,12 @@ def generate_msa_report(
 
     # ── 1. Bias Data Summary ──
     if bias_result is not None and bias_data is not None:
+        bias_arr = np.asarray(bias_data)
         bias_sum_headers = ["参数", "值"]
         bias_sum_rows = [
             ["分析类型", "偏差分析 (Bias) - 单样本 t 检验"],
             ["测量列", bias_col_name],
-            ["有效样本量", str(len(bias_data))],
+            ["有效样本量", str(len(bias_arr))],
             ["参考值 (标称真值)", f"{bias_result.reference_value:.4f}"],
             ["显著性水平 (alpha)", "0.05"],
         ]
@@ -423,11 +437,12 @@ def generate_msa_report(
 
     # ── 3. Linearity Data Summary ──
     if linear_result is not None and linear_refs is not None:
+        lin_refs_arr = np.asarray(linear_refs)
         lin_sum_headers = ["参数", "值"]
         lin_sum_rows = [
             ["分析类型", "线性分析 (Linearity) - 最小二乘回归"],
-            ["参考值个数", str(len(linear_refs))],
-            ["参考值范围", f"{min(linear_refs):.2f} ~ {max(linear_refs):.2f}"],
+            ["参考值个数", str(len(lin_refs_arr))],
+            ["参考值范围", f"{float(np.min(lin_refs_arr)):.2f} ~ {float(np.max(lin_refs_arr)):.2f}"],
             ["过程变异 (6\u03c3)", f"{process_variation:.4f}" if process_variation is not None else "未设置"],
         ]
         custom_data["TABLE_LINEAR_SUMMARY"] = _format_typst_table(lin_sum_headers, lin_sum_rows)
@@ -470,11 +485,11 @@ def generate_msa_report(
 
 def generate_spc_report(
     output_path: str,
-    chart1=None,
-    chart2=None,
+    chart1: SpcChartResult | None = None,
+    chart2: SpcChartResult | None = None,
     chart1_name: str = "",
     chart2_name: str = "",
-    cpk_result=None,
+    cpk_result: CapabilityResult | None = None,
     chart_paths: list[str] | None = None,
     col_name: str = "",
     chart_type_name: str = "",
@@ -571,9 +586,9 @@ def generate_spc_report(
 
 def generate_doe_report(
     output_path: str,
-    design,
-    model=None,
-    response=None,
+    design: DoeDesign,
+    model: Any = None,
+    response: Any = None,
     chart_paths: list[str] | None = None,
     config: ReportConfig | None = None,
 ) -> str:

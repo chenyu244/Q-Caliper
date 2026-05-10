@@ -14,7 +14,7 @@ from q_caliper.core.grr import AnovaRow, GrrResult  # noqa: E402
 from q_caliper.reports.report_engine import generate_cpk_report, generate_grr_report  # noqa: E402
 
 
-def test_cpk():
+def test_cpk() -> None:
     cpk_result = CapabilityResult(
         mean=50.1234,
         std_within=1.5,
@@ -57,7 +57,7 @@ def test_cpk():
         img_path.unlink(missing_ok=True)
 
 
-def test_grr():
+def test_grr() -> None:
     anova_table = [
         AnovaRow("零件 (Parts)", 12.5, 9, 1.3889, 45.23, 0.00001),
         AnovaRow("操作者 (Operators)", 0.8, 2, 0.4, 13.04, 0.0003),

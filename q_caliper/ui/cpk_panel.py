@@ -34,7 +34,12 @@ from qfluentwidgets import (
     TitleLabel,
 )
 
-from q_caliper.core.cpk import calculate_capability, normality_test
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+from q_caliper.core.cpk import calculate_capability, normality_test, CapabilityResult, NormalityResult
 
 
 def _setup_matplotlib_font() -> None:
@@ -290,7 +295,13 @@ class HistogramWidget(CardWidget):
         self.canvas.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
         layout.addWidget(self.canvas)
 
-    def plot(self, data: np.ndarray, norm_result, cpk_result, col_name: str) -> None:
+    def plot(
+        self,
+        data: npt.NDArray[np.float64],
+        norm_result: NormalityResult,
+        cpk_result: CapabilityResult,
+        col_name: str,
+    ) -> None:
         self.figure.clear()
 
         # 调整布局留出右侧空间给统计框, 使用 1x2 布局
@@ -377,8 +388,8 @@ class CpkPanelWidget(QWidget):
         super().__init__(parent)
         self.setObjectName("cpk_panel")
         self.df: pd.DataFrame | None = None
-        self.last_result = None
-        self.last_norm = None
+        self.last_result: CapabilityResult | None = None
+        self.last_norm: NormalityResult | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -412,7 +423,13 @@ class CpkPanelWidget(QWidget):
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         self.mapping_card.set_selected_columns(mapping)
 
-    def show_results(self, data, norm_result, cpk_result, col_name: str) -> None:
+    def show_results(
+        self,
+        data: npt.NDArray[np.float64],
+        norm_result: NormalityResult,
+        cpk_result: CapabilityResult,
+        col_name: str,
+    ) -> None:
         self.last_result = cpk_result
         self.last_norm = norm_result
         self.histogram.plot(data, norm_result, cpk_result, col_name)

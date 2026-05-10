@@ -154,6 +154,13 @@ def calculate_capability(
         n_subgroups = max(1, n - 1)
 
     # 2. 计算指标（如果提供了规格限）
+    # 1. 计算三个核心指标
+    cp: float | None = None
+    cpk: float | None = None
+    pp: float | None = None
+    ppk: float | None = None
+    cmk: float | None = None
+
     if usl is not None or lsl is not None:
         cp = _calc_cp(usl, lsl, std_within)
         cpk = _calc_cpk(mean, usl, lsl, std_within)
@@ -164,11 +171,11 @@ def calculate_capability(
         pct_above = _calc_pct_above(usl, mean, std_overall)
         pct_below = _calc_pct_below(lsl, mean, std_overall)
 
-        ppm_obs = 0
+        ppm_obs: float = 0.0
         if usl is not None:
-            ppm_obs += np.sum(arr > usl)
+            ppm_obs += float(np.sum(arr > usl))
         if lsl is not None:
-            ppm_obs += np.sum(arr < lsl)
+            ppm_obs += float(np.sum(arr < lsl))
         ppm_obs = (ppm_obs / n) * 1e6
 
         ppm_exp_within = (_calc_pct_above(usl, mean, std_within) + _calc_pct_below(lsl, mean, std_within)) * 1e6
@@ -177,7 +184,6 @@ def calculate_capability(
         cp = cpk = pp = ppk = cmk = None
         pct_above = pct_below = 0.0
         ppm_obs = ppm_exp_within = ppm_exp_overall = 0.0
-
     return CapabilityResult(
         mean=mean,
         std_within=std_within,
@@ -270,5 +276,6 @@ def _d2_constant(n: int) -> float:
 
     if n in d2_table:
         return d2_table[n]
-    elif n > 25:
+    if n > 25:
         raise ValueError(f"子组大小 {n} 过大。当 n > 25 时，极差法失效，请重新评估抽样方案。")
+    raise ValueError(f"不支持的子组大小: {n}")

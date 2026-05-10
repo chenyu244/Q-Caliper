@@ -35,7 +35,12 @@ from qfluentwidgets import (
     TitleLabel,
 )
 
-from q_caliper.core.msa import analyze_bias, analyze_linearity
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+from q_caliper.core.msa import analyze_bias, analyze_linearity, BiasResult, LinearResult
 
 
 def _setup_matplotlib_font() -> None:
@@ -279,12 +284,12 @@ class MsaInputCard(CardWidget):
             refs_raw = df[ref_col].values
             meas_raw = df[meas_col].values
 
-            unique_refs = sorted(np.unique(refs_raw))
+            unique_refs = np.sort(np.unique(refs_raw)).astype(np.float64)
             if len(unique_refs) < 3:
                 InfoBar.warning("数据不足", "至少需要 3 个不同的参考值", parent=self)
                 return
 
-            avg_means = np.array([meas_raw[refs_raw == r].mean() for r in unique_refs])
+            avg_means = np.array([meas_raw[refs_raw == r].mean() for r in unique_refs], dtype=np.float64)
 
             # Calculate process variation from USL/LSL or fallback to 6*StdDev
             usl = self.usl_spin.value()
@@ -378,7 +383,7 @@ class MsaChartsDashboard(QWidget):
 
         self.figures = [self.fig_bias, self.fig_linear]
 
-    def plot_bias(self, data, result, col_name: str) -> None:
+    def plot_bias(self, data: npt.NDArray[np.float64], result: BiasResult, col_name: str) -> None:
         fig = self.fig_bias
         fig.clear()
         gs = fig.add_gridspec(1, 2, width_ratios=[3, 1.6], wspace=0.1)
@@ -404,13 +409,13 @@ class MsaChartsDashboard(QWidget):
             ax.plot(x, y, color="#E74C3C", linewidth=1.5, label="正态拟合")
 
         ax.axvline(
-            result.reference_value,
+            float(result.reference_value),
             color="#27AE60",
             linestyle="--",
             linewidth=1.5,
             label=f"参考值={result.reference_value}",
         )
-        ax.axvline(mean, color="#E74C3C", linestyle="-", linewidth=1.5, label=f"均值={mean:.4f}")
+        ax.axvline(float(mean), color="#E74C3C", linestyle="-", linewidth=1.5, label=f"均值={mean:.4f}")
 
         ax.set_title(f"{col_name} 偏差分析", fontsize=12, fontweight="bold")
         ax.legend(fontsize=8, loc="upper left")
@@ -443,7 +448,7 @@ class MsaChartsDashboard(QWidget):
         fig.tight_layout()
         self.canvas_bias.draw()
 
-    def plot_linearity(self, result, col_name: str = "") -> None:
+    def plot_linearity(self, result: LinearResult, col_name: str = "") -> None:
         fig = self.fig_linear
         fig.clear()
         gs = fig.add_gridspec(1, 2, width_ratios=[3, 1.6], wspace=0.1)
@@ -500,13 +505,13 @@ class MsaPanelWidget(QWidget):
         super().__init__(parent)
         self.setObjectName("msa_panel")
         self.df: pd.DataFrame | None = None
-        self.last_bias_result = None
-        self.last_linear_result = None
-        self.last_bias_data = None
-        self.last_bias_col = None
-        self.last_linear_refs = None
-        self.last_linear_means = None
-        self.last_process_variation = None
+        self.last_bias_result: BiasResult | None = None
+        self.last_linear_result: LinearResult | None = None
+        self.last_bias_data: npt.NDArray[np.float64] | None = None
+        self.last_bias_col: str | None = None
+        self.last_linear_refs: npt.NDArray[np.float64] | None = None
+        self.last_linear_means: npt.NDArray[np.float64] | None = None
+        self.last_process_variation: float | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -538,13 +543,19 @@ class MsaPanelWidget(QWidget):
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         self.input_card.set_selected_columns(mapping)
 
-    def show_bias_results(self, data, result, col_name: str) -> None:
+    def show_bias_results(self, data: npt.NDArray[np.float64], result: BiasResult, col_name: str) -> None:
         self.last_bias_result = result
         self.last_bias_data = data
         self.last_bias_col = col_name
         self.charts.plot_bias(data, result, col_name)
 
-    def show_linear_results(self, refs, means, result, process_variation: float) -> None:
+    def show_linear_results(
+        self,
+        refs: npt.NDArray[np.float64],
+        means: npt.NDArray[np.float64],
+        result: LinearResult,
+        process_variation: float,
+    ) -> None:
         self.last_linear_result = result
         self.last_linear_refs = refs
         self.last_linear_means = means

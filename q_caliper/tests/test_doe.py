@@ -5,10 +5,13 @@ from __future__ import annotations
 from pathlib import Path
 
 import numpy as np
+import numpy.typing as npt
 import pytest
 import statsmodels.api as sm
 
-from q_caliper.core.doe import fractional_factorial, full_factorial
+from typing import Any
+
+from q_caliper.core.doe import DoeDesign, fractional_factorial, full_factorial
 
 
 class TestFullFactorial:
@@ -47,7 +50,7 @@ class TestFractionalFactorial:
             fractional_factorial(2)
 
 
-def _make_doe_model(design):
+def _make_doe_model(design: DoeDesign) -> tuple[Any, npt.NDArray[np.float64]]:
     rng = np.random.default_rng(42)
     n = design.n_runs
     x = sm.add_constant(design.design_matrix)

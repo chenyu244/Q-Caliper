@@ -6,10 +6,11 @@ import os
 import shutil
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import pandas as pd
 from PySide6.QtCore import Qt
-from PySide6.QtGui import QDragEnterEvent, QDropEvent
+from PySide6.QtGui import QDragEnterEvent, QDragLeaveEvent, QDropEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -126,7 +127,7 @@ class DataPreviewWidget(QWidget):
                 )
             )
 
-    def dragLeaveEvent(self, event) -> None:
+    def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
         self.table.setStyleSheet(
             self.table.styleSheet().replace(
                 "border: 2px dashed #0078D4; background: #f0f8ff;", "border: 2px dashed #ccc;"
@@ -158,7 +159,7 @@ class DataPreviewWidget(QWidget):
         parent = self.parent()
         while parent and not hasattr(parent, "load_file"):
             parent = parent.parent()
-        if hasattr(parent, "load_file"):
+        if parent is not None and hasattr(parent, "load_file"):
             parent.load_file(path)
 
     def _edit_header(self, logical_index: int) -> None:
@@ -197,7 +198,7 @@ class DataPreviewWidget(QWidget):
         col = item.column()
         val = item.text()
 
-        # 暂时关闭信号避免递归
+        # 信号连接暂时关闭信号避免递归
         self.table.blockSignals(True)
 
         try:
@@ -214,6 +215,7 @@ class DataPreviewWidget(QWidget):
             else:
                 # 修改数据 (行索引在表格中 offset 了 1)
                 # 尝试类型转换
+                converted_val: Any
                 try:
                     if not val:
                         converted_val = None
@@ -240,7 +242,7 @@ class DataPreviewWidget(QWidget):
         parent = self.parent()
         while parent and not hasattr(parent, "sync_file"):
             parent = parent.parent()
-        if hasattr(parent, "sync_file"):
+        if parent is not None and hasattr(parent, "sync_file"):
             parent.sync_file(self._full_df, silent=silent)
 
     def _get_current_dataframe(self) -> pd.DataFrame:
@@ -268,7 +270,7 @@ class DataPreviewWidget(QWidget):
 
     def get_role_mapping(self) -> dict[str, list[str]]:
         """Extract mapping of roles to column names from the table."""
-        mapping = {}
+        mapping: dict[str, list[str]] = {}
         for j in range(self.table.columnCount()):
             header_item = self.table.horizontalHeaderItem(j)
             if not header_item:

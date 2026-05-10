@@ -41,7 +41,7 @@ from qfluentwidgets import (
     TitleLabel,
 )
 
-from q_caliper.core.cpk import calculate_capability
+from q_caliper.core.cpk import CapabilityResult, calculate_capability
 from q_caliper.core.spc import SpcChartResult, xbar_r_chart, imr_chart
 
 
@@ -448,11 +448,14 @@ class ViolationsTable(CardWidget):
 
     def get_violations_data(self) -> list[tuple[str, str, str, str]]:
         """Return violations as list of (chart, rule, position, description)."""
-        result = []
+        result: list[tuple[str, str, str, str]] = []
         for row in range(self.table.rowCount()):
             items = [self.table.item(row, c) for c in range(4)]
             if all(item is not None for item in items):
-                result.append(tuple(item.text() for item in items))
+                # We know items are not None here
+                texts = [item.text() for item in items if item is not None]
+                if len(texts) == 4:
+                    result.append((texts[0], texts[1], texts[2], texts[3]))
         return result
 
 
@@ -498,7 +501,7 @@ class CpkTrendCard(CardWidget):
             return
 
         segment_size = n // n_segments
-        cpk_values = []
+        cpk_values: list[float] = []
         labels = []
 
         for i in range(n_segments):
@@ -507,14 +510,14 @@ class CpkTrendCard(CardWidget):
             seg_data = data[start:end]
             try:
                 result = calculate_capability(seg_data, usl, lsl, sg_size)
-                cpk_values.append(result.cpk)
+                cpk_values.append(result.cpk if result.cpk is not None else 0.0)
             except Exception:
                 cpk_values.append(0.0)
             labels.append(f"{start + 1}-{end}")
 
         x = range(len(cpk_values))
         colors = ["#27AE60" if v >= 1.33 else "#E67E22" if v >= 1.0 else "#E74C3C" for v in cpk_values]
-        bars = ax.bar(x, cpk_values, color=colors, alpha=0.8, edgecolor="white", width=0.6)
+        bars = ax.bar(list(x), cpk_values, color=colors, alpha=0.8, edgecolor="white", width=0.6)
 
         ax.axhline(1.33, color="#27AE60", linestyle="--", linewidth=1, alpha=0.7, label="Cpk=1.33")
         ax.axhline(1.0, color="#E67E22", linestyle="--", linewidth=1, alpha=0.7, label="Cpk=1.0")
@@ -551,11 +554,11 @@ class SpcPanelWidget(QWidget):
         super().__init__(parent)
         self.setObjectName("spc_panel")
         self.df: pd.DataFrame | None = None
-        self.last_chart1 = None
-        self.last_chart2 = None
+        self.last_chart1: SpcChartResult | None = None
+        self.last_chart2: SpcChartResult | None = None
         self.last_chart1_name = ""
         self.last_chart2_name = ""
-        self.last_cpk_result = None
+        self.last_cpk_result: CapabilityResult | None = None
         self.last_col_name = ""
         self.last_data_length = 0
         self._setup_ui()
@@ -612,7 +615,15 @@ class SpcPanelWidget(QWidget):
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         self.input_card.set_selected_columns(mapping)
 
-    def show_results(self, chart1, chart2, chart1_name, chart2_name, cpk_result, col_name) -> None:
+    def show_results(
+        self,
+        chart1: SpcChartResult,
+        chart2: SpcChartResult,
+        chart1_name: str,
+        chart2_name: str,
+        cpk_result: CapabilityResult | None,
+        col_name: str,
+    ) -> None:
         self.last_chart1 = chart1
         self.last_chart2 = chart2
         self.last_chart1_name = chart1_name

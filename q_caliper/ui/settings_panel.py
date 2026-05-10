@@ -87,7 +87,7 @@ class SystemInfoCard(CardWidget):
 
         info_lines = [
             f"Python: {sys.version.split()[0]}",
-            f"Qt: {PySide6.QtCore.__version__}",
+            f"Qt: {PySide6.QtCore.__version__}",  # type: ignore
             f"Typst (Python): {'可用' if check_typst_available() else '未安装'}",
         ]
 

@@ -39,9 +39,9 @@ class TestCpkCalculation:
         result = calculate_capability(data, usl=110, lsl=90)
 
         assert result.mean == pytest.approx(100, abs=0.5)
-        assert hasattr(result, "cpk")
-        assert hasattr(result, "cmk")
-        assert hasattr(result, "ppk")
+        assert result.cpk is not None
+        assert result.cmk is not None
+        assert result.ppk is not None
         assert result.cpk > 0
         assert result.cmk > 0
         assert result.ppk > 0
@@ -56,6 +56,7 @@ class TestCpkCalculation:
         assert result.analysis_mode == "cpk_grouped"
         assert result.num_subgroups == 10
         assert result.sample_size == 50
+        assert result.cpk is not None
         assert result.cpk > 0
 
     def test_individual_calculation(self) -> None:
@@ -65,11 +66,13 @@ class TestCpkCalculation:
 
         assert result.analysis_mode == "cpk_individual"
         assert result.num_subgroups == 24  # n-1
+        assert result.cpk is not None
         assert result.cpk > 0
 
     def test_one_sided_usl(self) -> None:
         data = [10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]
         result = calculate_capability(data, usl=25)
+        assert result.cpk is not None
         assert result.cpk > 0
         assert result.pct_below_lsl == 0.0
 

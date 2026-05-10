@@ -36,7 +36,12 @@ from qfluentwidgets import (
     TitleLabel,
 )
 
-from q_caliper.core.doe import full_factorial, fractional_factorial
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+from q_caliper.core.doe import full_factorial, fractional_factorial, DoeDesign
 
 
 def _setup_matplotlib_font() -> None:
@@ -355,7 +360,7 @@ class FactorEffectCard(CardWidget):
 
         layout.addLayout(chart_row)
 
-    def plot_effects(self, design, response: np.ndarray):
+    def plot_effects(self, design: DoeDesign, response: npt.NDArray[np.float64]) -> Any:
         x_mat = design.design_matrix
         x_with_const = sm.add_constant(x_mat)
         model = sm.OLS(response, x_with_const).fit()
@@ -430,9 +435,9 @@ class DoePanelWidget(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("doe_panel")
-        self.last_design = None
-        self.last_response = None
-        self.last_model = None
+        self.last_design: DoeDesign | None = None
+        self.last_response: npt.NDArray[np.float64] | None = None
+        self.last_model: Any | None = None
         self._setup_ui()
 
     def _setup_ui(self) -> None:
@@ -473,7 +478,7 @@ class DoePanelWidget(QWidget):
     def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
         self.input_card.set_selected_columns(mapping)
 
-    def show_design(self, design) -> None:
+    def show_design(self, design: DoeDesign) -> None:
         self.last_design = design
 
     def analyze_response(self, response: np.ndarray) -> None:
