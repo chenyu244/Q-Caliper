@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any
 import typst
 
 if TYPE_CHECKING:
-    import numpy as np
     import numpy.typing as npt
 
     from q_caliper.core.cpk import CapabilityResult, NormalityResult

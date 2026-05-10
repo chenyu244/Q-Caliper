@@ -3,13 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import numpy.typing as npt
 import pytest
 import statsmodels.api as sm
-
-from typing import Any
 
 from q_caliper.core.doe import DoeDesign, fractional_factorial, full_factorial
 

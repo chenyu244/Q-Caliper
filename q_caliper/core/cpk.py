@@ -136,10 +136,9 @@ def calculate_capability(
         mode = "cpk_grouped"
         n_subgroups = n // subgroup_size
         if n_subgroups < 2:
-            n_subgroups = 1  # Fallback if data is too short for multiple subgroups
-            subgroups = arr[:subgroup_size].reshape(1, -1)
-        else:
-            subgroups = arr[: n_subgroups * subgroup_size].reshape(-1, subgroup_size)
+            raise ValueError(f"当子组大小为 {subgroup_size} 时，至少需要 {subgroup_size * 2} 个数据点")
+
+        subgroups = arr[: n_subgroups * subgroup_size].reshape(-1, subgroup_size)
 
         ranges = np.ptp(subgroups, axis=1)
         bar_r = np.mean(ranges)
@@ -153,7 +152,10 @@ def calculate_capability(
         std_within = float(bar_mr / d2_mr)
         n_subgroups = max(1, n - 1)
 
-    # 2. 计算指标（如果提供了规格限）
+    # 2. 计算指标（必须提供了规格限）
+    if usl is None and lsl is None:
+        raise ValueError("必须至少指定 USL 或 LSL 其中之一")
+
     # 1. 计算三个核心指标
     cp: float | None = None
     cpk: float | None = None
@@ -161,29 +163,25 @@ def calculate_capability(
     ppk: float | None = None
     cmk: float | None = None
 
-    if usl is not None or lsl is not None:
-        cp = _calc_cp(usl, lsl, std_within)
-        cpk = _calc_cpk(mean, usl, lsl, std_within)
-        pp = _calc_cp(usl, lsl, std_overall)
-        ppk = _calc_cpk(mean, usl, lsl, std_overall)
-        cmk = ppk
+    cp = _calc_cp(usl, lsl, std_within)
+    cpk = _calc_cpk(mean, usl, lsl, std_within)
+    pp = _calc_cp(usl, lsl, std_overall)
+    ppk = _calc_cpk(mean, usl, lsl, std_overall)
+    cmk = ppk
 
-        pct_above = _calc_pct_above(usl, mean, std_overall)
-        pct_below = _calc_pct_below(lsl, mean, std_overall)
+    pct_above = _calc_pct_above(usl, mean, std_overall)
+    pct_below = _calc_pct_below(lsl, mean, std_overall)
 
-        ppm_obs: float = 0.0
-        if usl is not None:
-            ppm_obs += float(np.sum(arr > usl))
-        if lsl is not None:
-            ppm_obs += float(np.sum(arr < lsl))
-        ppm_obs = (ppm_obs / n) * 1e6
+    ppm_obs: float = 0.0
+    if usl is not None:
+        ppm_obs += float(np.sum(arr > usl))
+    if lsl is not None:
+        ppm_obs += float(np.sum(arr < lsl))
+    ppm_obs = (ppm_obs / n) * 1e6
 
-        ppm_exp_within = (_calc_pct_above(usl, mean, std_within) + _calc_pct_below(lsl, mean, std_within)) * 1e6
-        ppm_exp_overall = (pct_above + pct_below) * 1e6
-    else:
-        cp = cpk = pp = ppk = cmk = None
-        pct_above = pct_below = 0.0
-        ppm_obs = ppm_exp_within = ppm_exp_overall = 0.0
+    ppm_exp_within = (_calc_pct_above(usl, mean, std_within) + _calc_pct_below(lsl, mean, std_within)) * 1e6
+    ppm_exp_overall = (pct_above + pct_below) * 1e6
+
     return CapabilityResult(
         mean=mean,
         std_within=std_within,

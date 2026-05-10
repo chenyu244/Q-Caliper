@@ -434,7 +434,9 @@ class GrrChartsDashboard(QWidget):
         fig.tight_layout()
         canvas.draw()
 
-    def _plot_operator_control(self, fig: Figure, canvas: FigureCanvas, result: GrrResult, operator_names: list[str]) -> None:
+    def _plot_operator_control(
+        self, fig: Figure, canvas: FigureCanvas, result: GrrResult, operator_names: list[str]
+    ) -> None:
         fig.clear()
         ax = fig.add_subplot(111)
         means = result.operator_means
