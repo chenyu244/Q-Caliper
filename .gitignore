@@ -54,7 +54,10 @@ htmlcov/
 *.tmp
 config.local.toml
 bin/
-installer/
+installer/*
+!installer/Languages/
+installer/Languages/*
+!installer/Languages/ChineseSimplified.isl
 images/*_full.png
 
 # AI

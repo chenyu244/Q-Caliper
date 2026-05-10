@@ -78,9 +78,10 @@ class TestCpkCalculation:
 
     def test_validation_errors(self) -> None:
         """测试异常处理。"""
-        # 1. 缺少规格限
-        with pytest.raises(ValueError, match="必须至少指定 USL 或 LSL 其中之一"):
-            calculate_capability([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        # 1. 缺少规格限应正常返回，不再报错
+        result = calculate_capability([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
+        assert result.cpk is None
+        assert result.ppm_observed_total == 0.0
 
         # 2. 数据点太少
         with pytest.raises(ValueError, match="至少需要 8 个数据点"):
@@ -88,4 +89,4 @@ class TestCpkCalculation:
 
         # 3. 子组太少 (n=12, subgroup_size=10 -> n_subgroups=1 < 2)
         with pytest.raises(ValueError, match="至少需要 20 个数据点"):
-            calculate_capability(np.ones(12), usl=10, subgroup_size=10)
+            calculate_capability(list(range(12)), usl=25, subgroup_size=10)

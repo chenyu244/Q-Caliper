@@ -2,7 +2,7 @@
 ; 使用方法: 安装 Inno Setup 6 后, 右键本文件 -> Compile
 
 #define MyAppName "Q-Caliper"
-#define MyAppVersion "1.0.0"
+#define MyAppVersion "1.0.1"
 #define MyAppPublisher "Q-Caliper"
 #define MyAppURL "https://github.com/chenyu244/Q-Caliper"
 #define MyAppExeName "Q-Caliper.exe"
@@ -27,12 +27,13 @@ SolidCompression=yes
 WizardStyle=modern
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
-PrivilegesRequired=lowest
+PrivilegesRequired=none
+PrivilegesRequiredOverridesAllowed=dialog
 SetupIconFile=images\Q-caliper.ico
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+Name: "chinesesimplified"; MessagesFile: "installer\Languages\ChineseSimplified.isl"
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Tasks]
