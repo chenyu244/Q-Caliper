@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import matplotlib
+
 matplotlib.use("QtAgg")
 import numpy as np
 import pandas as pd
@@ -224,7 +225,9 @@ class GrrInputCard(CardWidget):
                 n_parts = len(parts)
                 self.n_parts_spin.setValue(n_parts)
             if len(operators) != n_ops:
-                InfoBar.warning("操作者数不匹配", f"数据中有 {len(operators)} 个不同操作者, 设置为 {n_ops}", parent=self)
+                InfoBar.warning(
+                    "操作者数不匹配", f"数据中有 {len(operators)} 个不同操作者, 设置为 {n_ops}", parent=self
+                )
                 n_ops = len(operators)
                 self.n_ops_spin.setValue(n_ops)
 
@@ -233,7 +236,9 @@ class GrrInputCard(CardWidget):
                 for o in operators:
                     subset = df[(df[part_col] == p) & (df[operator_col] == o)][measure_col].values
                     if len(subset) < n_trials:
-                        InfoBar.error("数据不足", f"零件={p}, 操作者={o} 只有 {len(subset)} 条数据, 需要 {n_trials}", parent=self)
+                        InfoBar.error(
+                            "数据不足", f"零件={p}, 操作者={o} 只有 {len(subset)} 条数据, 需要 {n_trials}", parent=self
+                        )
                         return
                     data_flat.extend(subset[:n_trials])
 
@@ -371,7 +376,18 @@ class GrrChartsDashboard(QWidget):
         ax = fig.add_subplot(111)
         part_data = [arr[i, :, :].flatten() for i in range(n_parts)]
         bp = ax.boxplot(part_data, patch_artist=True, labels=part_names[:n_parts])
-        colors = ["#4A90D9", "#50C878", "#FFB347", "#FF6B6B", "#9B59B6", "#1ABC9C", "#E74C3C", "#3498DB", "#F39C12", "#2ECC71"]
+        colors = [
+            "#4A90D9",
+            "#50C878",
+            "#FFB347",
+            "#FF6B6B",
+            "#9B59B6",
+            "#1ABC9C",
+            "#E74C3C",
+            "#3498DB",
+            "#F39C12",
+            "#2ECC71",
+        ]
         for i, patch in enumerate(bp["boxes"]):
             patch.set_facecolor(colors[i % len(colors)])
             patch.set_alpha(0.7)
@@ -403,10 +419,12 @@ class GrrChartsDashboard(QWidget):
         means = result.operator_means
         x = range(len(means))
         ax.bar(x, means, color="#4A90D9", alpha=0.8, edgecolor="white")
-        ax.axhline(result.grand_mean, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"总均值={result.grand_mean:.3f}")
+        ax.axhline(
+            result.grand_mean, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"总均值={result.grand_mean:.3f}"
+        )
         ax.set_title("操作者均值图", fontsize=11, fontweight="bold")
         ax.set_xticks(list(x))
-        ax.set_xticklabels(operator_names[:len(means)], rotation=45, fontsize=8)
+        ax.set_xticklabels(operator_names[: len(means)], rotation=45, fontsize=8)
         ax.set_ylabel("均值")
         ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3, axis="y")
@@ -419,10 +437,12 @@ class GrrChartsDashboard(QWidget):
         means = result.part_means
         x = range(len(means))
         ax.bar(x, means, color="#50C878", alpha=0.8, edgecolor="white")
-        ax.axhline(result.grand_mean, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"总均值={result.grand_mean:.3f}")
+        ax.axhline(
+            result.grand_mean, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"总均值={result.grand_mean:.3f}"
+        )
         ax.set_title("零件均值图", fontsize=11, fontweight="bold")
         ax.set_xticks(list(x))
-        ax.set_xticklabels(part_names[:len(means)], rotation=45, fontsize=7)
+        ax.set_xticklabels(part_names[: len(means)], rotation=45, fontsize=7)
         ax.set_ylabel("均值")
         ax.legend(fontsize=8)
         ax.grid(True, alpha=0.3, axis="y")
@@ -436,9 +456,13 @@ class GrrChartsDashboard(QWidget):
         colors = ["#4A90D9", "#E74C3C", "#2ECC71", "#F39C12", "#9B59B6"]
         for j in range(n_ops):
             ax.plot(
-                range(n_parts), cell_means[:, j],
-                marker="o", color=colors[j % len(colors)],
-                linewidth=1.2, markersize=6, label=operator_names[j],
+                range(n_parts),
+                cell_means[:, j],
+                marker="o",
+                color=colors[j % len(colors)],
+                linewidth=1.2,
+                markersize=6,
+                label=operator_names[j],
             )
         ax.set_title("零件x操作者 交互图", fontsize=11, fontweight="bold")
         ax.set_xticks(range(n_parts))
@@ -471,7 +495,14 @@ class GrrChartsDashboard(QWidget):
             ax.set_yticks(list(y_pos))
             ax.set_yticklabels(names, fontsize=9)
             for bar, pct in zip(bars, pcts, strict=False):
-                ax.text(bar.get_width() + 0.5, bar.get_y() + bar.get_height() / 2, f"{pct:.1f}%", va="center", fontsize=9, fontweight="bold")
+                ax.text(
+                    bar.get_width() + 0.5,
+                    bar.get_y() + bar.get_height() / 2,
+                    f"{pct:.1f}%",
+                    va="center",
+                    fontsize=9,
+                    fontweight="bold",
+                )
             ax.set_xlim(0, max(pcts) * 1.2 if pcts else 100)
             ax.set_xlabel("贡献率 (%)", fontsize=9)
             ax.invert_yaxis()
@@ -498,7 +529,9 @@ class GrrChartsDashboard(QWidget):
             f"零件 (PV):  {result.var_parts:.6f}\n"
             f"总变异:     {result.var_total:.6f}\n"
         )
-        ax_stats.text(0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.6)
+        ax_stats.text(
+            0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.6
+        )
 
         fig.tight_layout()
         canvas.draw()

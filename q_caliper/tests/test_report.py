@@ -16,10 +16,25 @@ from q_caliper.reports.report_engine import generate_cpk_report, generate_grr_re
 
 def test_cpk():
     cpk_result = CapabilityResult(
-        mean=50.1234, std_within=1.5, std_overall=1.8, cp=1.33, cpk=1.2, pp=1.1, ppk=0.9, cmk=1.5,
-        usl=55, lsl=45, pct_above_usl=0.01, pct_below_lsl=0.01, pct_total_out=0.02,
-        sample_size=100, num_subgroups=20, analysis_mode="cpk_grouped",
-        ppm_observed_total=20000, ppm_expected_within_total=15000, ppm_expected_overall_total=25000
+        mean=50.1234,
+        std_within=1.5,
+        std_overall=1.8,
+        cp=1.33,
+        cpk=1.2,
+        pp=1.1,
+        ppk=0.9,
+        cmk=1.5,
+        usl=55,
+        lsl=45,
+        pct_above_usl=0.01,
+        pct_below_lsl=0.01,
+        pct_total_out=0.02,
+        sample_size=100,
+        num_subgroups=20,
+        analysis_mode="cpk_grouped",
+        ppm_observed_total=20000,
+        ppm_expected_within_total=15000,
+        ppm_expected_overall_total=25000,
     )
     norm_result = NormalityResult(test_name="Shapiro-Wilk", statistic=0.98, p_value=0.15, is_normal=True)
 
@@ -35,6 +50,7 @@ def test_cpk():
         print("Cpk report success! PDF generated at:", out)
     except Exception:
         import traceback
+
         print("Error during Cpk generation:")
         traceback.print_exc()
     finally:
@@ -84,6 +100,7 @@ def test_grr():
         print("GRR report success! PDF generated at:", out)
     except Exception:
         import traceback
+
         print("Error during GRR generation:")
         traceback.print_exc()
     finally:

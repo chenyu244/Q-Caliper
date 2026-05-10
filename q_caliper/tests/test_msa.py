@@ -66,6 +66,7 @@ def test_msa_report_bias_only() -> None:
     bias_result = analyze_bias(data, reference_value=100.0)
 
     import matplotlib.pyplot as plt
+
     img = Path("tmp_msa_bias_chart.png")
     plt.figure()
     plt.hist(data, bins=15)
@@ -83,6 +84,7 @@ def test_msa_report_bias_only() -> None:
         print("MSA bias report success! PDF:", out)
     except Exception:
         import traceback
+
         traceback.print_exc()
     finally:
         img.unlink(missing_ok=True)
@@ -99,6 +101,7 @@ def test_msa_report_full() -> None:
     linear_result = analyze_linearity(refs, means, process_variation=30)
 
     import matplotlib.pyplot as plt
+
     imgs = []
     for name in ["bias", "linear"]:
         p = Path(f"tmp_msa_{name}.png")
@@ -123,6 +126,7 @@ def test_msa_report_full() -> None:
         print("MSA full report success! PDF:", out)
     except Exception:
         import traceback
+
         traceback.print_exc()
     finally:
         for p in imgs:

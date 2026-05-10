@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import matplotlib
+
 matplotlib.use("QtAgg")
 import numpy as np
 import pandas as pd
@@ -158,6 +159,7 @@ class ColumnMappingCard(CardWidget):
 
     def _show_spec_menu(self) -> None:
         from qfluentwidgets import RoundMenu, Action
+
         if self.df is None:
             return
 
@@ -175,8 +177,8 @@ class ColumnMappingCard(CardWidget):
         menu = RoundMenu(parent=self.magic_btn)
 
         actions = [
-            ("±3 Sigma (99.7%)", mean + 3*std, mean - 3*std),
-            ("±6 Sigma (精密)", mean + 6*std, mean - 6*std),
+            ("±3 Sigma (99.7%)", mean + 3 * std, mean - 3 * std),
+            ("±6 Sigma (精密)", mean + 6 * std, mean - 6 * std),
             ("全范围 (Max/Min)", np.max(data), np.min(data)),
             ("重置规格", -1e12, -1e12),
         ]
@@ -297,27 +299,40 @@ class HistogramWidget(CardWidget):
 
         # 1. 绘制直方图
         n_bins = min(50, max(10, len(data) // 5))
-        ax.hist(data, bins=n_bins, density=True, alpha=0.6, color="#4A90D9", edgecolor="white", linewidth=0.5, label="数据分布")
+        ax.hist(
+            data,
+            bins=n_bins,
+            density=True,
+            alpha=0.6,
+            color="#4A90D9",
+            edgecolor="white",
+            linewidth=0.5,
+            label="数据分布",
+        )
 
         # 2. 绘制正态拟合
         xmin, xmax = ax.get_xlim()
         x = np.linspace(min(data.min(), xmin), max(data.max(), xmax), 300)
 
         # 整体正态曲线 (实线)
-        y_overall = (1 / (cpk_result.std_overall * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - cpk_result.mean) / cpk_result.std_overall) ** 2)
+        y_overall = (1 / (cpk_result.std_overall * np.sqrt(2 * np.pi))) * np.exp(
+            -0.5 * ((x - cpk_result.mean) / cpk_result.std_overall) ** 2
+        )
         ax.plot(x, y_overall, color="#E74C3C", linewidth=1.5, label="整体正态")
 
         # 组内正态曲线 (虚线)
-        y_within = (1 / (cpk_result.std_within * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - cpk_result.mean) / cpk_result.std_within) ** 2)
+        y_within = (1 / (cpk_result.std_within * np.sqrt(2 * np.pi))) * np.exp(
+            -0.5 * ((x - cpk_result.mean) / cpk_result.std_within) ** 2
+        )
         ax.plot(x, y_within, color="#27AE60", linestyle="--", linewidth=1.5, label="组内正态")
 
         # 3. 规格限
         if cpk_result.usl is not None:
             ax.axvline(cpk_result.usl, color="#E67E22", linestyle="-", linewidth=2)
-            ax.text(cpk_result.usl, ax.get_ylim()[1]*1.02, "USL", color="#E67E22", ha="center", fontweight="bold")
+            ax.text(cpk_result.usl, ax.get_ylim()[1] * 1.02, "USL", color="#E67E22", ha="center", fontweight="bold")
         if cpk_result.lsl is not None:
             ax.axvline(cpk_result.lsl, color="#E67E22", linestyle="-", linewidth=2)
-            ax.text(cpk_result.lsl, ax.get_ylim()[1]*1.02, "LSL", color="#E67E22", ha="center", fontweight="bold")
+            ax.text(cpk_result.lsl, ax.get_ylim()[1] * 1.02, "LSL", color="#E67E22", ha="center", fontweight="bold")
 
         ax.set_title(f"{col_name} 过程能力报告", fontsize=14, fontweight="bold", pad=20)
         ax.grid(True, alpha=0.2)
@@ -347,11 +362,12 @@ class HistogramWidget(CardWidget):
                 f"Cpk: {cpk_result.cpk:<5.2f}    Ppk: {cpk_result.ppk:<5.2f}\n"
             )
 
-        ax_stats.text(0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.6)
+        ax_stats.text(
+            0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.6
+        )
 
         self.figure.tight_layout()
         self.canvas.draw()
-
 
 
 class CpkPanelWidget(QWidget):

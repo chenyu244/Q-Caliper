@@ -70,7 +70,9 @@ def validate_grr_data(
     if n_trials < 2:
         issues.append("重复测量至少需要 2 次")
     if n_measurements != expected:
-        issues.append(f"数据量不匹配: 期望 {expected} 个 ({n_parts}x{n_operators}x{n_trials}), 实际 {n_measurements} 个")
+        issues.append(
+            f"数据量不匹配: 期望 {expected} 个 ({n_parts}x{n_operators}x{n_trials}), 实际 {n_measurements} 个"
+        )
     if n_parts < 10:
         issues.append(f"零件数偏少({n_parts}), 建议 >=10 以提高统计功效")
     if n_operators < 3:

@@ -6,6 +6,7 @@ from __future__ import annotations
 import contextlib
 
 import matplotlib
+
 matplotlib.use("QtAgg")
 import numpy as np
 import pandas as pd
@@ -193,6 +194,7 @@ class SpcInputCard(CardWidget):
 
     def _show_spec_menu(self) -> None:
         from qfluentwidgets import RoundMenu, Action
+
         if self.df is None:
             return
 
@@ -356,9 +358,13 @@ class ControlChartWidget(CardWidget):
         x = list(range(1, len(chart.values) + 1))
         ax.plot(x, chart.values, "o-", color="#4A90D9", markersize=5, linewidth=1.0, label="数据点", zorder=3)
 
-        ax.axhline(chart.limits.ucl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"UCL={chart.limits.ucl:.3f}")
+        ax.axhline(
+            chart.limits.ucl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"UCL={chart.limits.ucl:.3f}"
+        )
         ax.axhline(chart.limits.cl, color="#2ECC71", linestyle="-", linewidth=1.2, label=f"CL={chart.limits.cl:.3f}")
-        ax.axhline(chart.limits.lcl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"LCL={chart.limits.lcl:.3f}")
+        ax.axhline(
+            chart.limits.lcl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"LCL={chart.limits.lcl:.3f}"
+        )
 
         ucl = chart.limits.ucl
         cl = chart.limits.cl
@@ -412,7 +418,9 @@ class ViolationsTable(CardWidget):
         self.table.setStyleSheet(TABLE_STYLE)
         layout.addWidget(self.table)
 
-    def show_violations(self, chart1: SpcChartResult, chart1_name: str, chart2: SpcChartResult, chart2_name: str) -> None:
+    def show_violations(
+        self, chart1: SpcChartResult, chart1_name: str, chart2: SpcChartResult, chart2_name: str
+    ) -> None:
         all_v = []
         for v in chart1.violations:
             all_v.append((chart1_name, v.rule, f"第 {v.index + 1} 点", v.description))
@@ -467,13 +475,24 @@ class CpkTrendCard(CardWidget):
         self.canvas.setMinimumHeight(200)
         layout.addWidget(self.canvas)
 
-    def plot_trend(self, data: np.ndarray, usl: float | None, lsl: float | None, n_segments: int = 5, sg_size: int = 1) -> None:
+    def plot_trend(
+        self, data: np.ndarray, usl: float | None, lsl: float | None, n_segments: int = 5, sg_size: int = 1
+    ) -> None:
         self.figure.clear()
         ax = self.figure.add_subplot(111)
 
         n = len(data)
         if n < 20 or (usl is None and lsl is None):
-            ax.text(0.5, 0.5, "数据不足或未设置规格限", ha="center", va="center", fontsize=12, color="#999", transform=ax.transAxes)
+            ax.text(
+                0.5,
+                0.5,
+                "数据不足或未设置规格限",
+                ha="center",
+                va="center",
+                fontsize=12,
+                color="#999",
+                transform=ax.transAxes,
+            )
             self.figure.tight_layout()
             self.canvas.draw()
             return
@@ -501,7 +520,15 @@ class CpkTrendCard(CardWidget):
         ax.axhline(1.0, color="#E67E22", linestyle="--", linewidth=1, alpha=0.7, label="Cpk=1.0")
 
         for bar, val in zip(bars, cpk_values, strict=False):
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02, f"{val:.2f}", ha="center", va="bottom", fontsize=9, fontweight="bold")
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.02,
+                f"{val:.2f}",
+                ha="center",
+                va="bottom",
+                fontsize=9,
+                fontweight="bold",
+            )
 
         ax.set_xticks(list(x))
         ax.set_xticklabels(labels, fontsize=8)

@@ -8,9 +8,7 @@ from PySide6.QtWidgets import QApplication
 
 def main() -> None:
     """Application entry point."""
-    QApplication.setHighDpiScaleFactorRoundingPolicy(
-        Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
-    )
+    QApplication.setHighDpiScaleFactorRoundingPolicy(Qt.HighDpiScaleFactorRoundingPolicy.PassThrough)
     app = QApplication(sys.argv)
     app.setApplicationName("Q-Caliper")
     app.setApplicationVersion("0.1.0")

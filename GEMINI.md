@@ -1,3 +1,16 @@
+# 项目执行铁律 (Project Iron Laws)
+
+## 1. Git 推送双规 (Dual-Repo Push)
+- **要求**: 每次执行 Git 推送（Push）操作时，必须**同时**推送至 GitHub (`origin`) 和私人仓库 (`private`)。
+- **示例**: `git push origin main; git push private main`。
+
+## 2. 终端命令兼容性 (Shell Compatibility)
+- **环境约束**: 考虑到部分环境使用 PowerShell 5.1，**严禁**在 shell 命令中使用 `&&` 作为语句分隔符（该符号在 PS 5.1 中无效）。
+- **替代方案**: 使用分号 `;` 或将命令分为多次调用。
+- **示例**: 
+  - 错误: `git status && git add .`
+  - 正确: `git status; git add .`
+
 # Typst 编写铁律 (Iron Laws for Typst)
 
 在修改或创建 `.typ` 文件时，必须严格遵守以下规则，严禁混淆 LaTeX 语法。

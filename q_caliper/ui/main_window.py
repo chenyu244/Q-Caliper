@@ -67,7 +67,9 @@ class MainWindow(FluentWindow):
         self.navigationInterface.addSeparator()
 
         self.addSubInterface(
-            self.settings_panel, FluentIcon.SETTING, "设置",
+            self.settings_panel,
+            FluentIcon.SETTING,
+            "设置",
             position=NavigationItemPosition.BOTTOM,
         )
 

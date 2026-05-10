@@ -173,9 +173,7 @@ def detect_violations(
 
     for i in range(n - 13):
         window = values[i : i + 14]
-        alternating = all(
-            (window[j] > cl) != (window[j + 1] > cl) for j in range(13)
-        )
+        alternating = all((window[j] > cl) != (window[j + 1] > cl) for j in range(13))
         if alternating:
             violations.append(ViolationPoint(i + 13, "Rule 4", "连续14点交替上下"))
 

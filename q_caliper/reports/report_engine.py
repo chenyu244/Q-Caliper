@@ -49,13 +49,7 @@ class ReportData:
 
 def _escape_typst_content(text: str) -> str:
     """Escape characters that Typst interprets as markup inside content blocks."""
-    return (
-        str(text)
-        .replace("[", "(")
-        .replace("]", ")")
-        .replace("<", "\\<")
-        .replace(">", "\\>")
-    )
+    return str(text).replace("[", "(").replace("]", ")").replace("<", "\\<").replace(">", "\\>")
 
 
 def to_roman(n: int) -> str:
@@ -136,7 +130,7 @@ def render_report(
             if src.exists():
                 dst = tmp_dir / f"chart_{i}{src.suffix}"
                 shutil.copy2(src, dst)
-                new_chart_paths.append(dst.name) # Use relative path in workspace
+                new_chart_paths.append(dst.name)  # Use relative path in workspace
         data.chart_paths = new_chart_paths
 
         # 3. Render and write the specific report template
@@ -153,6 +147,7 @@ def render_report(
         shutil.rmtree(tmp_dir, ignore_errors=True)
 
     return str(Path(output_path).resolve())
+
 
 def _render_template(template_path: Path, data: ReportData, config: ReportConfig) -> str:
     """Read and render a Typst template with data substitution."""
@@ -209,11 +204,20 @@ def generate_cpk_report(
     config: ReportConfig | None = None,
 ) -> str:
     """Generate a Cpk analysis PDF report."""
-    sg_size = int(cpk_result.sample_size / cpk_result.num_subgroups) if cpk_result.num_subgroups and cpk_result.analysis_mode == "cpk_grouped" else 1
+    sg_size = (
+        int(cpk_result.sample_size / cpk_result.num_subgroups)
+        if cpk_result.num_subgroups and cpk_result.analysis_mode == "cpk_grouped"
+        else 1
+    )
 
     basic_headers = ["参数", "统计值", "参数", "统计值"]
     basic_rows = [
-        ["样本数量 (N)", str(cpk_result.sample_size), "规格上限 (USL)", str(cpk_result.usl) if cpk_result.usl is not None else "无"],
+        [
+            "样本数量 (N)",
+            str(cpk_result.sample_size),
+            "规格上限 (USL)",
+            str(cpk_result.usl) if cpk_result.usl is not None else "无",
+        ],
         ["子组大小", str(sg_size), "规格下限 (LSL)", str(cpk_result.lsl) if cpk_result.lsl is not None else "无"],
         ["样本均值 (Mean)", f"{cpk_result.mean:.4f}", "总体标准差 (长期)", f"{cpk_result.std_overall:.4f}"],
         ["目标值", "-", "组内标准差 (短期)", f"{cpk_result.std_within:.4f}"],
@@ -226,7 +230,7 @@ def generate_cpk_report(
             f"{norm_result.statistic:.4f}",
             f"{norm_result.p_value:.4f}",
             "α = 0.05",
-            "服从正态分布" if norm_result.is_normal else "非正态分布 (建议调查特殊变异)"
+            "服从正态分布" if norm_result.is_normal else "非正态分布 (建议调查特殊变异)",
         ]
     ]
 
@@ -286,14 +290,16 @@ def generate_grr_report(
     anova_headers = ["来源", "自由度", "SS", "MS", "F", "P"]
     anova_rows = []
     for row in grr_result.anova_table:
-        anova_rows.append([
-            row.source,
-            str(row.df),
-            f"{row.ss:.2f}",
-            f"{row.ms:.3f}",
-            f"{row.f_value:.2f}" if row.f_value else "-",
-            f"{row.p_value:.3f}" if row.p_value else "-",
-        ])
+        anova_rows.append(
+            [
+                row.source,
+                str(row.df),
+                f"{row.ss:.2f}",
+                f"{row.ms:.3f}",
+                f"{row.f_value:.2f}" if row.f_value else "-",
+                f"{row.p_value:.3f}" if row.p_value else "-",
+            ]
+        )
 
     # ── 3. Variance Components ──
     var_total = grr_result.var_total if grr_result.var_total > 0 else 1e-12
@@ -430,7 +436,9 @@ def generate_msa_report(
 
     # ── 4. Linearity Result ──
     if linear_result is not None:
-        pt_grade = "可接受" if linear_result.pt_ratio < 0.1 else "有条件接受" if linear_result.pt_ratio < 0.3 else "不可接受"
+        pt_grade = (
+            "可接受" if linear_result.pt_ratio < 0.1 else "有条件接受" if linear_result.pt_ratio < 0.3 else "不可接受"
+        )
         lin_headers = ["指标", "值"]
         lin_rows = [
             ["斜率 (Slope)", f"{linear_result.slope:.6f}"],
@@ -444,10 +452,7 @@ def generate_msa_report(
         custom_data["TABLE_LINEAR_RESULT"] = _format_typst_table(lin_headers, lin_rows)
 
         point_headers = ["参考值", "观测均值", "偏差"]
-        point_rows = [
-            [f"{p.reference:.4f}", f"{p.observed_mean:.4f}", f"{p.bias:.4f}"]
-            for p in linear_result.points
-        ]
+        point_rows = [[f"{p.reference:.4f}", f"{p.observed_mean:.4f}", f"{p.bias:.4f}"] for p in linear_result.points]
         custom_data["TABLE_LINEAR_POINTS"] = _format_typst_table(point_headers, point_rows)
     else:
         custom_data["TABLE_LINEAR_RESULT"] = ""
@@ -600,13 +605,15 @@ def generate_doe_report(
         for i in range(base_factors):
             others = [design.factor_names[j] for j in range(base_factors) if j != i]
             others.append(design.factor_names[-1])
-            alias_pairs.append(f"  - *{design.factor_names[i]}* 与 {design.factor_names[-1]} 的交互别名 (即 {' #sym.times '.join(others)})")
+            alias_pairs.append(
+                f"  - *{design.factor_names[i]}* 与 {design.factor_names[-1]} 的交互别名 (即 {' #sym.times '.join(others)})"
+            )
 
         aliasing_block = "\n".join(alias_pairs)
         custom_data["DESIGN_TYPE_INFO"] = (
             f"\n== 设计类型说明: 部分因子设计 (2^{{{design.n_factors}-1}})\n\n"
             f"本报告采用 *半分式因子设计*, 仅需 {design.n_runs} 次实验即可估计 {design.n_factors} 个因子的主效应"
-            f" (全因子设计需要 {2 ** design.n_factors} 次)。\n\n"
+            f" (全因子设计需要 {2**design.n_factors} 次)。\n\n"
             f"*生成关系*: {design.factor_names[-1]} = {interaction_str}\n\n"
             f"*设计分辨力*: Resolution {to_roman(resolution)} (主效应与 {resolution - 1} 阶交互混杂)\n\n"
             f"*混杂结构 (Aliasing)*:\n"
@@ -647,14 +654,16 @@ def generate_doe_report(
             t_val = model.tvalues[idx + 1]
             p_val = pvalues[idx]
             sig = "显著" if p_val < 0.05 else "边际显著" if p_val < 0.10 else "不显著"
-            effect_rows.append([
-                name,
-                f"{effect_val:.4f}",
-                f"{coef:.4f}",
-                f"{t_val:.4f}",
-                f"{p_val:.4f}",
-                sig,
-            ])
+            effect_rows.append(
+                [
+                    name,
+                    f"{effect_val:.4f}",
+                    f"{coef:.4f}",
+                    f"{t_val:.4f}",
+                    f"{p_val:.4f}",
+                    sig,
+                ]
+            )
         custom_data["TABLE_EFFECTS"] = _format_typst_table(effect_headers, effect_rows)
 
         # ── 4. Model Statistics ──

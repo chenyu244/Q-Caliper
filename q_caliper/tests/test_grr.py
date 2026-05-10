@@ -46,10 +46,7 @@ class TestGrrCalculation:
         data = rng.normal(loc=0, scale=1, size=n_parts * n_ops * n_trials)
         result = calculate_grr(data, n_parts, n_ops, n_trials)
         expected_total = (
-            result.var_repeatability
-            + result.var_reproducibility
-            + result.var_interaction
-            + result.var_parts
+            result.var_repeatability + result.var_reproducibility + result.var_interaction + result.var_parts
         )
         assert result.var_total == pytest.approx(expected_total, rel=1e-10)
 

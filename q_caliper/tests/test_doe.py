@@ -65,6 +65,7 @@ def test_doe_report_full_factorial() -> None:
     model, y = _make_doe_model(design)
 
     import matplotlib.pyplot as plt
+
     imgs = []
     for name in ["effect", "pareto"]:
         p = Path(f"tmp_doe_{name}.png")
@@ -85,6 +86,7 @@ def test_doe_report_full_factorial() -> None:
         print("DOE report success! PDF:", out)
     except Exception:
         import traceback
+
         traceback.print_exc()
     finally:
         for p in imgs:

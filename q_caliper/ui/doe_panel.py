@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import matplotlib
+
 matplotlib.use("QtAgg")
 import matplotlib.font_manager as fm
 import numpy as np
@@ -40,9 +41,15 @@ from q_caliper.core.doe import full_factorial, fractional_factorial
 
 def _setup_matplotlib_font() -> None:
     candidates = [
-        "Microsoft YaHei", "SimHei", "SimSun", "NSimSun",
-        "FangSong", "KaiTi", "Microsoft JhengHei",
-        "WenQuanYi Micro Hei", "Noto Sans CJK SC",
+        "Microsoft YaHei",
+        "SimHei",
+        "SimSun",
+        "NSimSun",
+        "FangSong",
+        "KaiTi",
+        "Microsoft JhengHei",
+        "WenQuanYi Micro Hei",
+        "Noto Sans CJK SC",
     ]
     available = {f.name for f in fm.fontManager.ttflist}
     for name in candidates:
@@ -226,9 +233,7 @@ class DoeInputCard(CardWidget):
         if not hasattr(self, "current_design"):
             return
 
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出设计矩阵", "doe_design.xlsx", "Excel 文件 (*.xlsx)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出设计矩阵", "doe_design.xlsx", "Excel 文件 (*.xlsx)")
         if not path:
             return
 
@@ -282,9 +287,7 @@ class DoeInputCard(CardWidget):
             InfoBar.warning("提示", "请先生成设计矩阵", parent=self)
             return
 
-        path, _ = QFileDialog.getSaveFileName(
-            self, "导出分析报告", "DOE实验设计报告.pdf", "PDF 文件 (*.pdf)"
-        )
+        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "DOE实验设计报告.pdf", "PDF 文件 (*.pdf)")
         if not path:
             return
 
@@ -398,6 +401,7 @@ class FactorEffectCard(CardWidget):
 
         if len(sorted_abs) > 0:
             from scipy import stats as sp_stats
+
             df_resid = model.df_resid
             if df_resid > 0:
                 mse = model.mse_resid
@@ -413,7 +417,9 @@ class FactorEffectCard(CardWidget):
         self.pareto_fig.tight_layout()
         self.pareto_canvas.draw()
 
-        self.header_label.setText(f"因子效应分析 (R²={model.rsquared:.4f}, F={model.fvalue:.2f}, p={model.f_pvalue:.4f})")
+        self.header_label.setText(
+            f"因子效应分析 (R²={model.rsquared:.4f}, F={model.fvalue:.2f}, p={model.f_pvalue:.4f})"
+        )
 
         return model
 

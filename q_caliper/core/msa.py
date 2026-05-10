@@ -121,7 +121,7 @@ def analyze_linearity(
 
     biases = means - refs
     slope, intercept, r_value, p_value, _std_err = sp_stats.linregress(refs, biases)
-    r_squared = float(r_value ** 2) if not np.isnan(r_value) else 0.0
+    r_squared = float(r_value**2) if not np.isnan(r_value) else 0.0
 
     x_fit = np.linspace(refs.min(), refs.max(), 50)
     y_fit = slope * x_fit + intercept

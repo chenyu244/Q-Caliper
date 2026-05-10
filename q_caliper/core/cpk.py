@@ -27,6 +27,7 @@ if TYPE_CHECKING:
 @dataclass
 class NormalityResult:
     """正态性检验结果。"""
+
     test_name: str
     statistic: float
     p_value: float
@@ -57,6 +58,7 @@ class CapabilityResult:
         ppm_expected_within_total: 组内预期的总 PPM
         ppm_expected_overall_total: 整体预期的总 PPM
     """
+
     mean: float
     std_within: float
     std_overall: float
@@ -134,7 +136,7 @@ def calculate_capability(
         mode = "cpk_grouped"
         n_subgroups = n // subgroup_size
         if n_subgroups < 2:
-            n_subgroups = 1 # Fallback if data is too short for multiple subgroups
+            n_subgroups = 1  # Fallback if data is too short for multiple subgroups
             subgroups = arr[:subgroup_size].reshape(1, -1)
         else:
             subgroups = arr[: n_subgroups * subgroup_size].reshape(-1, subgroup_size)
@@ -203,6 +205,7 @@ def calculate_capability(
 # 辅助函数
 # ============================================================================
 
+
 def _calc_cp(usl: float | None, lsl: float | None, sigma: float) -> float:
     """计算 Cp 或 Pp（不考虑中心偏移）。"""
     if sigma == 0 or sigma is None:
@@ -212,9 +215,7 @@ def _calc_cp(usl: float | None, lsl: float | None, sigma: float) -> float:
     return 0.0
 
 
-def _calc_cpk(
-    mean: float, usl: float | None, lsl: float | None, sigma: float
-) -> float:
+def _calc_cpk(mean: float, usl: float | None, lsl: float | None, sigma: float) -> float:
     """计算 Cpk、Ppk 或 Cmk（考虑中心偏移）。"""
     if sigma == 0 or sigma is None:
         return 0.0
@@ -240,12 +241,31 @@ def _calc_pct_below(lsl: float | None, mean: float, sigma: float) -> float:
 def _d2_constant(n: int) -> float:
     """返回子组大小为 n 时的 d2 常数。"""
     d2_table = {
-        2: 1.128, 3: 1.693, 4: 2.059, 5: 2.326, 6: 2.534,
-        7: 2.704, 8: 2.847, 9: 2.970, 10: 3.078,
+        2: 1.128,
+        3: 1.693,
+        4: 2.059,
+        5: 2.326,
+        6: 2.534,
+        7: 2.704,
+        8: 2.847,
+        9: 2.970,
+        10: 3.078,
         # 补充大子组查表值
-        11: 3.173, 12: 3.258, 13: 3.336, 14: 3.407, 15: 3.472,
-        16: 3.532, 17: 3.588, 18: 3.640, 19: 3.689, 20: 3.735,
-        21: 3.778, 22: 3.819, 23: 3.858, 24: 3.895, 25: 3.931
+        11: 3.173,
+        12: 3.258,
+        13: 3.336,
+        14: 3.407,
+        15: 3.472,
+        16: 3.532,
+        17: 3.588,
+        18: 3.640,
+        19: 3.689,
+        20: 3.735,
+        21: 3.778,
+        22: 3.819,
+        23: 3.858,
+        24: 3.895,
+        25: 3.931,
     }
 
     if n in d2_table:

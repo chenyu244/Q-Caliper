@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import matplotlib
+
 matplotlib.use("QtAgg")
 import numpy as np
 import pandas as pd
@@ -160,9 +161,7 @@ class MsaInputCard(CardWidget):
         spec_help.setIcon(FluentIcon.QUESTION)
         spec_help.setFixedSize(20, 20)
         spec_help.setToolTip(
-            "与 Cpk 分析中的规格限相同。\n"
-            "填写后过程变异 PV = USL - LSL。\n"
-            "不填写则自动使用 PV = 6 x StdDev。"
+            "与 Cpk 分析中的规格限相同。\n填写后过程变异 PV = USL - LSL。\n不填写则自动使用 PV = 6 x StdDev。"
         )
         spec_lbl_row.addWidget(spec_help)
         spec_lbl_row.addStretch()
@@ -386,7 +385,16 @@ class MsaChartsDashboard(QWidget):
         ax = fig.add_subplot(gs[0])
 
         n_bins = min(30, max(10, len(data) // 3))
-        ax.hist(data, bins=n_bins, density=True, alpha=0.7, color="#4A90D9", edgecolor="white", linewidth=0.5, label="数据分布")
+        ax.hist(
+            data,
+            bins=n_bins,
+            density=True,
+            alpha=0.7,
+            color="#4A90D9",
+            edgecolor="white",
+            linewidth=0.5,
+            label="数据分布",
+        )
 
         x = np.linspace(data.min(), data.max(), 200)
         mean = np.mean(data)
@@ -395,7 +403,13 @@ class MsaChartsDashboard(QWidget):
             y = (1 / (std * np.sqrt(2 * np.pi))) * np.exp(-0.5 * ((x - mean) / std) ** 2)
             ax.plot(x, y, color="#E74C3C", linewidth=1.5, label="正态拟合")
 
-        ax.axvline(result.reference_value, color="#27AE60", linestyle="--", linewidth=1.5, label=f"参考值={result.reference_value}")
+        ax.axvline(
+            result.reference_value,
+            color="#27AE60",
+            linestyle="--",
+            linewidth=1.5,
+            label=f"参考值={result.reference_value}",
+        )
         ax.axvline(mean, color="#E74C3C", linestyle="-", linewidth=1.5, label=f"均值={mean:.4f}")
 
         ax.set_title(f"{col_name} 偏差分析", fontsize=12, fontweight="bold")
@@ -422,7 +436,9 @@ class MsaChartsDashboard(QWidget):
             f"\n"
             f"结论: {sig_text}\n"
         )
-        ax_stats.text(0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.5)
+        ax_stats.text(
+            0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.5
+        )
 
         fig.tight_layout()
         self.canvas_bias.draw()
@@ -437,8 +453,13 @@ class MsaChartsDashboard(QWidget):
         biases = [p.bias for p in result.points]
 
         ax.scatter(refs, biases, color="#4A90D9", s=60, zorder=5, label="观测偏差")
-        ax.plot(result.regression_line_x, result.regression_line_y, color="#E74C3C", linewidth=1.5,
-                label=f"回归线 (y={result.slope:.4f}x+{result.intercept:.4f})")
+        ax.plot(
+            result.regression_line_x,
+            result.regression_line_y,
+            color="#E74C3C",
+            linewidth=1.5,
+            label=f"回归线 (y={result.slope:.4f}x+{result.intercept:.4f})",
+        )
         ax.axhline(0, color="#27AE60", linestyle="--", linewidth=1, alpha=0.7, label="零偏差线")
 
         ax.set_xlabel("参考值", fontsize=10)
@@ -464,7 +485,9 @@ class MsaChartsDashboard(QWidget):
             f"判定:              {pt_grade}\n"
             f"线性度:            {result.linearity:.4f}\n"
         )
-        ax_stats.text(0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.5)
+        ax_stats.text(
+            0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.5
+        )
 
         fig.tight_layout()
         self.canvas_linear.draw()

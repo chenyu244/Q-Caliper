@@ -55,6 +55,7 @@ def test_spc_report_xbar_r() -> None:
     cpk_result = calculate_capability(data, usl=106, lsl=94, subgroup_size=5)
 
     import matplotlib.pyplot as plt
+
     imgs = []
     for name in ["xbar", "r", "trend"]:
         p = Path(f"tmp_spc_{name}.png")
@@ -81,6 +82,7 @@ def test_spc_report_xbar_r() -> None:
         print("SPC XBar-R report success! PDF:", out)
     except Exception:
         import traceback
+
         traceback.print_exc()
     finally:
         for p in imgs:
@@ -94,6 +96,7 @@ def test_spc_report_imr() -> None:
     i_chart, mr_chart = imr_chart(data)
 
     import matplotlib.pyplot as plt
+
     imgs = []
     for name in ["i", "mr"]:
         p = Path(f"tmp_spc_{name}.png")
@@ -120,6 +123,7 @@ def test_spc_report_imr() -> None:
         print("SPC I-MR report success! PDF:", out)
     except Exception:
         import traceback
+
         traceback.print_exc()
     finally:
         for p in imgs:

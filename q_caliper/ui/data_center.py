@@ -58,13 +58,13 @@ class DataPreviewWidget(QWidget):
         self.sync_btn = PushButton("同步修改")
         self.sync_btn.setIcon(FluentIcon.SYNC)
         self.sync_btn.clicked.connect(self._sync_file)
-        self.sync_btn.hide() # Hidden until data is loaded
+        self.sync_btn.hide()  # Hidden until data is loaded
         header_row.addWidget(self.sync_btn)
 
         self.smart_btn = PrimaryPushButton("分析推荐")
         self.smart_btn.setIcon(FluentIcon.INFO)
         self.smart_btn.clicked.connect(self._goto_analysis)
-        self.smart_btn.hide() # Hidden until data is loaded
+        self.smart_btn.hide()  # Hidden until data is loaded
         header_row.addWidget(self.smart_btn)
 
         header_row.addStretch()
@@ -120,13 +120,25 @@ class DataPreviewWidget(QWidget):
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.table.setStyleSheet(self.table.styleSheet().replace("border: 2px dashed #ccc;", "border: 2px dashed #0078D4; background: #f0f8ff;"))
+            self.table.setStyleSheet(
+                self.table.styleSheet().replace(
+                    "border: 2px dashed #ccc;", "border: 2px dashed #0078D4; background: #f0f8ff;"
+                )
+            )
 
     def dragLeaveEvent(self, event) -> None:
-        self.table.setStyleSheet(self.table.styleSheet().replace("border: 2px dashed #0078D4; background: #f0f8ff;", "border: 2px dashed #ccc;"))
+        self.table.setStyleSheet(
+            self.table.styleSheet().replace(
+                "border: 2px dashed #0078D4; background: #f0f8ff;", "border: 2px dashed #ccc;"
+            )
+        )
 
     def dropEvent(self, event: QDropEvent) -> None:
-        self.table.setStyleSheet(self.table.styleSheet().replace("border: 2px dashed #0078D4; background: #f0f8ff;", "border: 2px dashed #ccc;"))
+        self.table.setStyleSheet(
+            self.table.styleSheet().replace(
+                "border: 2px dashed #0078D4; background: #f0f8ff;", "border: 2px dashed #ccc;"
+            )
+        )
         urls = event.mimeData().urls()
         if urls:
             path = urls[0].toLocalFile()
@@ -134,7 +146,9 @@ class DataPreviewWidget(QWidget):
 
     def _browse_file(self) -> None:
         path, _ = QFileDialog.getOpenFileName(
-            self, "选择数据文件", "",
+            self,
+            "选择数据文件",
+            "",
             "Excel 文件 (*.xlsx *.xlsm);;CSV 文件 (*.csv);;所有文件 (*)",
         )
         if path:
@@ -156,9 +170,12 @@ class DataPreviewWidget(QWidget):
 
         roles = ["测量值", "操作者", "零件", "时间", "因子", "未分类"]
         new_role, ok = QInputDialog.getItem(
-            self, "修改数据角色", "请选择该列的数据角色:", roles,
+            self,
+            "修改数据角色",
+            "请选择该列的数据角色:",
+            roles,
             current=roles.index(current_role) if current_role in roles else 5,
-            editable=False
+            editable=False,
         )
 
         if ok and new_role:
@@ -283,7 +300,7 @@ class DataPreviewWidget(QWidget):
     def load_dataframe(self, df: pd.DataFrame, filename: str) -> None:
         self._loading = True
         self.table.blockSignals(True)
-        self._full_df = df.copy() # 保存全量数据副本
+        self._full_df = df.copy()  # 保存全量数据副本
 
         self.file_label.setText(filename)
         n_rows, n_cols = df.shape
@@ -337,7 +354,6 @@ class DataPreviewWidget(QWidget):
         self._update_smart_btn()
 
 
-
 class DataCenterWidget(QWidget):
     """Data Center page — file loading and preview."""
 
@@ -384,7 +400,7 @@ class DataCenterWidget(QWidget):
                     w.yesButton.setText("覆盖")
                     w.cancelButton.setText("取消")
                     if not w.exec():
-                        return # 用户取消
+                        return  # 用户取消
 
                 # 无论是新生成还是确认覆盖，都进行拷贝
                 shutil.copy2(path, target_path)
@@ -401,7 +417,12 @@ class DataCenterWidget(QWidget):
             # Record timestamp for future sync
             self._last_modified_time = os.path.getmtime(self.filepath)
 
-            InfoBar.success("加载成功", f"已加载 {target_path.name} ({len(df)} 行 x {len(df.columns)} 列)", parent=self, duration=2000)
+            InfoBar.success(
+                "加载成功",
+                f"已加载 {target_path.name} ({len(df)} 行 x {len(df.columns)} 列)",
+                parent=self,
+                duration=2000,
+            )
 
             main_win = self.window()
             if hasattr(main_win, "cpk_panel"):
@@ -509,4 +530,3 @@ class DataCenterWidget(QWidget):
         except Exception as e:
             InfoBar.error("数据清洗失败", f"无法自动识别表头或清洗数据: {e!s}", parent=self)
             return None
-
