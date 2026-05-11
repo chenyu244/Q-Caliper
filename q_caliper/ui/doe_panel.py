@@ -208,6 +208,9 @@ class DoeInputCard(CardWidget):
             idx = self.response_combo.findText(col)
             if idx >= 0:
                 self.response_combo.setCurrentIndex(idx)
+        if mapping.get("因子"):
+            n_factors = len(mapping["因子"])
+            self.n_factors_spin.setValue(min(n_factors, self.n_factors_spin.maximum()))
 
     def _on_generate(self) -> None:
         n_factors = self.n_factors_spin.value()
@@ -232,7 +235,7 @@ class DoeInputCard(CardWidget):
                 parent.show_design(design)
 
         except Exception as e:
-            InfoBar.error("生成错误", str(e), parent=self)
+            InfoBar.error("生成错误", str(e), parent=self, duration=-1)
 
     def _on_export(self) -> None:
         if not hasattr(self, "current_design"):
@@ -280,6 +283,7 @@ class DoeInputCard(CardWidget):
 
     def _on_export_pdf(self) -> None:
         from q_caliper.reports.report_engine import generate_doe_report
+        from q_caliper.ui.utils import generate_report_filename
 
         parent = self.parent()
         while parent and not isinstance(parent, DoePanelWidget):
@@ -292,7 +296,8 @@ class DoeInputCard(CardWidget):
             InfoBar.warning("提示", "请先生成设计矩阵", parent=self)
             return
 
-        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "DOE实验设计报告.pdf", "PDF 文件 (*.pdf)")
+        default_name = generate_report_filename("DOE实验设计报告.pdf", str(Path.cwd()))
+        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", default_name, "PDF 文件 (*.pdf)")
         if not path:
             return
 

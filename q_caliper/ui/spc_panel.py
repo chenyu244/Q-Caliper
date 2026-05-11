@@ -290,10 +290,11 @@ class SpcInputCard(CardWidget):
                 self.report_btn.setEnabled(True)
 
         except Exception as e:
-            InfoBar.error("计算错误", str(e), parent=self)
+            InfoBar.error("计算错误", str(e), parent=self, duration=-1)
 
     def _on_export_pdf(self) -> None:
         from q_caliper.reports.report_engine import generate_spc_report
+        from q_caliper.ui.utils import generate_report_filename
 
         parent = self.parent()
         while parent and not isinstance(parent, SpcPanelWidget):
@@ -302,7 +303,8 @@ class SpcInputCard(CardWidget):
         if not parent:
             return
 
-        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "SPC分析报告.pdf", "PDF 文件 (*.pdf)")
+        default_name = generate_report_filename("SPC分析报告.pdf", str(Path.cwd()))
+        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", default_name, "PDF 文件 (*.pdf)")
         if not path:
             return
 
@@ -351,7 +353,7 @@ class ControlChartWidget(CardWidget):
         self.canvas.setMinimumHeight(280)
         layout.addWidget(self.canvas)
 
-    def plot(self, chart: SpcChartResult, title: str) -> None:
+    def plot(self, chart: SpcChartResult, title: str, usl: float | None = None, lsl: float | None = None) -> None:
         self.figure.clear()
         ax = self.figure.add_subplot(111)
 
@@ -365,6 +367,11 @@ class ControlChartWidget(CardWidget):
         ax.axhline(
             chart.limits.lcl, color="#E74C3C", linestyle="--", linewidth=1.2, label=f"LCL={chart.limits.lcl:.3f}"
         )
+
+        if usl is not None:
+            ax.axhline(usl, color="#8E44AD", linestyle="-.", linewidth=1.2, label=f"USL={usl:.3f}")
+        if lsl is not None:
+            ax.axhline(lsl, color="#8E44AD", linestyle="-.", linewidth=1.2, label=f"LSL={lsl:.3f}")
 
         ucl = chart.limits.ucl
         cl = chart.limits.cl
@@ -631,14 +638,15 @@ class SpcPanelWidget(QWidget):
         self.last_cpk_result = cpk_result
         self.last_col_name = col_name
 
-        self.chart1_widget.plot(chart1, f"{col_name} - {chart1_name}")
+        usl = cpk_result.usl if cpk_result else None
+        lsl = cpk_result.lsl if cpk_result else None
+
+        self.chart1_widget.plot(chart1, f"{col_name} - {chart1_name}", usl=usl, lsl=lsl)
         self.chart2_widget.plot(chart2, f"{col_name} - {chart2_name}")
         self.violations_table.show_violations(chart1, chart1_name, chart2, chart2_name)
 
         data = self.df[col_name].dropna().values if self.df is not None else None
         self.last_data_length = len(data) if data is not None else 0
-        usl = cpk_result.usl if cpk_result else None
-        lsl = cpk_result.lsl if cpk_result else None
         if data is not None:
             chart_type = self.input_card.chart_type_combo.currentIndex()
             sg = self.input_card.subgroup_spin.value() if chart_type == 0 else 1

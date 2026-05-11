@@ -5,6 +5,7 @@ from __future__ import annotations
 import sys
 import tempfile
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -42,7 +43,7 @@ class ReportConfig:
     logo_path: str = ""
     report_title: str = "质量分析报告"
     author: str = ""
-    date: str = ""
+    date: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
 
 
 @dataclass
@@ -59,7 +60,19 @@ class ReportData:
 
 def _escape_typst_content(text: str) -> str:
     """Escape characters that Typst interprets as markup inside content blocks."""
-    return str(text).replace("[", "(").replace("]", ")").replace("<", "\\<").replace(">", "\\>")
+    s = str(text)
+    s = s.replace("\\", "\\\\")
+    s = s.replace("$", "\\$")
+    s = s.replace("*", "\\*")
+    s = s.replace("_", "\\_")
+    s = s.replace("`", "\\`")
+    s = s.replace("@", "\\@")
+    s = s.replace("~", "\\~")
+    s = s.replace("[", "(")
+    s = s.replace("]", ")")
+    s = s.replace("<", "\\<")
+    s = s.replace(">", "\\>")
+    return s
 
 
 def to_roman(n: int) -> str:

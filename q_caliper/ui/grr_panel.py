@@ -242,7 +242,10 @@ class GrrInputCard(CardWidget):
                     subset = df[(df[part_col] == p) & (df[operator_col] == o)][measure_col].values
                     if len(subset) < n_trials:
                         InfoBar.error(
-                            "数据不足", f"零件={p}, 操作者={o} 只有 {len(subset)} 条数据, 需要 {n_trials}", parent=self
+                            "数据不足",
+                            f"零件={p}, 操作者={o} 只有 {len(subset)} 条数据, 需要 {n_trials}",
+                            parent=self,
+                            duration=-1,
                         )
                         return
                     data_flat.extend(subset[:n_trials])
@@ -264,10 +267,11 @@ class GrrInputCard(CardWidget):
                 self.report_btn.setEnabled(True)
 
         except Exception as e:
-            InfoBar.error("计算错误", str(e), parent=self)
+            InfoBar.error("计算错误", str(e), parent=self, duration=-1)
 
     def _on_export_pdf(self) -> None:
         from q_caliper.reports.report_engine import generate_grr_report
+        from q_caliper.ui.utils import generate_report_filename
 
         parent = self.parent()
         while parent and not isinstance(parent, GrrPanelWidget):
@@ -276,7 +280,8 @@ class GrrInputCard(CardWidget):
         if not parent or parent.last_result is None:
             return
 
-        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "量具分析报告.pdf", "PDF 文件 (*.pdf)")
+        default_name = generate_report_filename("量具分析报告.pdf", str(Path.cwd()))
+        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", default_name, "PDF 文件 (*.pdf)")
         if not path:
             return
 

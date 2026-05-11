@@ -242,7 +242,7 @@ class ColumnMappingCard(CardWidget):
             norm_result = normality_test(data)
             cpk_result = calculate_capability(data, usl_val, lsl_val, sg_size)
         except Exception as e:
-            InfoBar.error("分析错误", str(e), parent=self)
+            InfoBar.error("分析错误", str(e), parent=self, duration=-1)
             return
 
         parent = self.parent()
@@ -254,6 +254,7 @@ class ColumnMappingCard(CardWidget):
 
     def _on_export_pdf(self) -> None:
         from q_caliper.reports.report_engine import generate_cpk_report
+        from q_caliper.ui.utils import generate_report_filename
 
         parent = self.parent()
         while parent and not isinstance(parent, CpkPanelWidget):
@@ -262,20 +263,20 @@ class ColumnMappingCard(CardWidget):
         if not parent or parent.last_result is None:
             return
 
-        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "正态分析报告.pdf", "PDF 文件 (*.pdf)")
+        default_name = generate_report_filename("正态分析报告.pdf", str(Path.cwd()))
+        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", default_name, "PDF 文件 (*.pdf)")
         if not path:
             return
 
+        tmp_img = str(Path("tmp_capability.png").resolve())
         try:
-            # 使用绝对路径避免路径问题
-            tmp_img = str(Path("tmp_capability.png").resolve())
             parent.histogram.figure.savefig(tmp_img, dpi=120)
-
             generate_cpk_report(path, parent.last_result, parent.last_norm, tmp_img)
             InfoBar.success("导出成功", f"报告已保存至: {path}", parent=self, duration=5000)
         except Exception as e:
-            # 使用 InfoBar 显示长效错误，不阻塞 UI 线程
             InfoBar.error("导出失败", f"PDF 生成过程中发生错误：\n{e!s}", parent=self, duration=-1)
+        finally:
+            Path(tmp_img).unlink(missing_ok=True)
 
 
 class HistogramWidget(CardWidget):

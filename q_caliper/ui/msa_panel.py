@@ -262,7 +262,7 @@ class MsaInputCard(CardWidget):
                 parent.show_bias_results(data, result, col)
                 self.report_btn.setEnabled(True)
         except Exception as e:
-            InfoBar.error("计算错误", str(e), parent=self)
+            InfoBar.error("计算错误", str(e), parent=self, duration=-1)
 
     def _on_linear_calculate(self) -> None:
         if self.df is None:
@@ -305,10 +305,11 @@ class MsaInputCard(CardWidget):
                 parent.show_linear_results(unique_refs, avg_means, result, pv)
                 self.report_btn.setEnabled(True)
         except Exception as e:
-            InfoBar.error("计算错误", str(e), parent=self)
+            InfoBar.error("计算错误", str(e), parent=self, duration=-1)
 
     def _on_export_pdf(self) -> None:
         from q_caliper.reports.report_engine import generate_msa_report
+        from q_caliper.ui.utils import generate_report_filename
 
         parent = self.parent()
         while parent and not isinstance(parent, MsaPanelWidget):
@@ -317,7 +318,8 @@ class MsaInputCard(CardWidget):
         if not parent:
             return
 
-        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", "MSA分析报告.pdf", "PDF 文件 (*.pdf)")
+        default_name = generate_report_filename("MSA分析报告.pdf", str(Path.cwd()))
+        path, _ = QFileDialog.getSaveFileName(self, "导出分析报告", default_name, "PDF 文件 (*.pdf)")
         if not path:
             return
 

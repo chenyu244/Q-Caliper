@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import warnings
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -62,11 +63,12 @@ class DataPreviewWidget(QWidget):
         self.sync_btn.hide()  # Hidden until data is loaded
         header_row.addWidget(self.sync_btn)
 
-        self.smart_btn = PrimaryPushButton("分析推荐")
-        self.smart_btn.setIcon(FluentIcon.INFO)
-        self.smart_btn.clicked.connect(self._goto_analysis)
-        self.smart_btn.hide()  # Hidden until data is loaded
-        header_row.addWidget(self.smart_btn)
+        self._smart_btn_container = QWidget()
+        self._smart_btn_layout = QHBoxLayout(self._smart_btn_container)
+        self._smart_btn_layout.setContentsMargins(0, 0, 0, 0)
+        self._smart_btn_layout.setSpacing(6)
+        self._smart_btn_container.hide()
+        header_row.addWidget(self._smart_btn_container)
 
         header_row.addStretch()
 
@@ -214,24 +216,26 @@ class DataPreviewWidget(QWidget):
                 item.setFont(font)
             else:
                 # 修改数据 (行索引在表格中 offset 了 1)
-                # 尝试类型转换
+                # 列上下文感知的类型转换
                 converted_val: Any
-                try:
-                    if not val:
-                        converted_val = None
-                    elif "." in val:
-                        converted_val = float(val)
+                if not val:
+                    converted_val = None
+                else:
+                    col_dtype = self._full_df.iloc[:, col].dtype
+                    if col_dtype is object:
+                        converted_val = val
                     else:
-                        converted_val = int(val)
-                except ValueError:
-                    converted_val = val
+                        try:
+                            converted_val = float(val) if "." in val or "e" in val.lower() else int(val)
+                        except ValueError:
+                            converted_val = val
 
                 self._full_df.iloc[row - 1, col] = converted_val
 
             # 自动保存应该静默进行，避免频繁弹窗干扰用户
             self._sync_file(silent=True)
         except Exception as e:
-            InfoBar.error("数据更新失败", str(e), parent=self)
+            InfoBar.error("数据更新失败", str(e), parent=self, duration=-1)
         finally:
             self.table.blockSignals(False)
 
@@ -251,16 +255,40 @@ class DataPreviewWidget(QWidget):
         """
         return self._full_df if self._full_df is not None else pd.DataFrame()
 
-    def _goto_analysis(self) -> None:
+    def _get_recommendations(self) -> list[tuple[str, str, str]]:
+        """Return list of (panel_attr, label, icon_name) recommendations."""
+        mapping = self.get_role_mapping()
+        recs: list[tuple[str, str, str]] = []
+        if all(r in mapping for r in ["测量值", "操作者", "零件"]):
+            recs.append(("grr_panel", "GRR", "MARKET"))
+        if "测量值" in mapping:
+            recs.append(("cpk_panel", "CPK", "CARE_RIGHT_SOLID"))
+            recs.append(("spc_panel", "SPC", "CHART"))
+        if "因子" in mapping:
+            recs.append(("doe_panel", "DOE", "CODE"))
+        return recs
+
+    def _navigate_to(self, panel_attr: str) -> None:
+        """Navigate to a specific analysis panel."""
         mapping = self.get_role_mapping()
         main_win = self.window()
 
-        target_panel = None
-        if all(r in mapping for r in ["测量值", "操作者", "零件"]):
-            target_panel = getattr(main_win, "grr_panel", None)
-        elif "测量值" in mapping:
-            target_panel = getattr(main_win, "cpk_panel", None)
+        # 多测量值筛选
+        if "测量值" in mapping and len(mapping["测量值"]) > 1:
+            col, ok = QInputDialog.getItem(
+                self,
+                "选择分析列",
+                "检测到多个测量值列，请选择:",
+                mapping["测量值"],
+                0,
+                False,
+            )
+            if ok:
+                mapping["测量值"] = [col]
+            else:
+                return
 
+        target_panel = getattr(main_win, panel_attr, None)
         if target_panel and hasattr(main_win, "switchTo"):
             if hasattr(target_panel, "set_selected_columns"):
                 target_panel.set_selected_columns(mapping)
@@ -287,17 +315,36 @@ class DataPreviewWidget(QWidget):
         return mapping
 
     def _update_smart_btn(self) -> None:
-        """Update smart analysis button text based on current roles."""
-        mapping = self.get_role_mapping()
-        if all(r in mapping for r in ["测量值", "操作者", "零件"]):
-            self.smart_btn.setText("智能推荐: 量具分析")
-            self.smart_btn.setIcon(FluentIcon.MARKET)
-        elif "测量值" in mapping:
-            self.smart_btn.setText("智能推荐: 正态分析")
-            self.smart_btn.setIcon(FluentIcon.CARE_RIGHT_SOLID)
+        """Rebuild smart recommendation buttons based on current roles."""
+        # Clear existing buttons
+        while self._smart_btn_layout.count() > 0:
+            item = self._smart_btn_layout.takeAt(0)
+            if item is not None:
+                w = item.widget()
+                if w is not None:
+                    w.deleteLater()
+
+        recs = self._get_recommendations()
+        if not recs:
+            btn = PrimaryPushButton("分析推荐")
+            btn.setIcon(FluentIcon.INFO)
+            btn.clicked.connect(
+                lambda: InfoBar.warning(
+                    "分析推荐",
+                    "请先通过双击表头为列分配角色（如：测量值、零件、操作者）",
+                    parent=self,
+                )
+            )
+            self._smart_btn_layout.addWidget(btn)
         else:
-            self.smart_btn.setText("分析推荐")
-            self.smart_btn.setIcon(FluentIcon.INFO)
+            for panel_attr, label, icon_name in recs:
+                btn = PrimaryPushButton(label)
+                icon = getattr(FluentIcon, icon_name, FluentIcon.CARE_RIGHT_SOLID)
+                btn.setIcon(icon)
+                btn.clicked.connect(lambda checked=False, p=panel_attr: self._navigate_to(p))
+                self._smart_btn_layout.addWidget(btn)
+
+        self._smart_btn_container.show()
 
     def load_dataframe(self, df: pd.DataFrame, filename: str) -> None:
         self._loading = True
@@ -322,8 +369,10 @@ class DataPreviewWidget(QWidget):
                 roles.append("测量值")
             elif any(k in col_str for k in ("日期", "时间", "date", "time")):
                 roles.append("时间")
-            elif any(k in col_str for k in ("因子", "factor", "条件")):
+            elif any(k in col_str for k in ("因子", "factor", "条件", "水平", "level", "正交")):
                 roles.append("因子")
+            elif pd.api.types.is_float_dtype(df[col]):
+                roles.append("测量值")
             else:
                 roles.append("未分类")
 
@@ -352,7 +401,6 @@ class DataPreviewWidget(QWidget):
         self.table.blockSignals(False)
         self._loading = False
         self.sync_btn.show()
-        self.smart_btn.show()
         self._update_smart_btn()
 
 
@@ -387,8 +435,27 @@ class DataCenterWidget(QWidget):
             suffix = p.suffix.lower()
 
             if suffix not in (".xlsx", ".xlsm", ".csv"):
-                InfoBar.error("不支持的格式", f"不支持 {suffix} 格式, 请使用 .xlsx / .xlsm / .csv", parent=self)
+                InfoBar.error(
+                    "不支持的格式", f"不支持 {suffix} 格式, 请使用 .xlsx / .xlsm / .csv", parent=self, duration=-1
+                )
                 return
+
+            # --- Read-only file handling ---
+            if suffix != ".csv" and not os.access(path, os.W_OK):
+                title = "文件为只读"
+                content = f"文件 '{p.name}' 当前为只读状态，无法清洗和编辑。\n是否取消只读属性后继续？"
+                w = MessageBox(title, content, self)
+                w.yesButton.setText("取消只读并继续")
+                w.cancelButton.setText("取消")
+                if not w.exec():
+                    return
+                try:
+                    import stat
+
+                    p.chmod(p.stat().st_mode | stat.S_IWRITE)
+                except Exception as e:
+                    InfoBar.error("操作失败", f"无法修改文件权限: {e!s}", parent=self, duration=-1)
+                    return
 
             target_path = p
             if not p.name.startswith("[Q]_"):
@@ -407,7 +474,41 @@ class DataCenterWidget(QWidget):
                 # 无论是新生成还是确认覆盖，都进行拷贝
                 shutil.copy2(path, target_path)
 
-            df = self._smart_read_and_clean(target_path)
+            # --- Multi-sheet detection ---
+            sheet_name: str | int | None = None
+            if suffix != ".csv":
+                try:
+                    from openpyxl import load_workbook
+
+                    wb = load_workbook(target_path, read_only=True, data_only=True)
+                    non_empty_sheets: list[str] = []
+                    for sname in wb.sheetnames:
+                        ws = wb[sname]
+                        has_data = False
+                        for row in ws.iter_rows(max_row=5, values_only=True):
+                            if any(v is not None for v in row):
+                                has_data = True
+                                break
+                        if has_data:
+                            non_empty_sheets.append(sname)
+                    wb.close()
+
+                    if len(non_empty_sheets) > 1:
+                        chosen, ok = QInputDialog.getItem(
+                            self,
+                            "选择数据表",
+                            f"文件包含 {len(non_empty_sheets)} 个非空数据表，请选择要分析的表:",
+                            non_empty_sheets,
+                            0,
+                            False,
+                        )
+                        if not ok:
+                            return
+                        sheet_name = chosen
+                except Exception:
+                    pass
+
+            df = self._smart_read_and_clean(target_path, sheet_name=sheet_name)
             if df is None:
                 return
 
@@ -439,7 +540,7 @@ class DataCenterWidget(QWidget):
                 main_win.doe_panel.set_dataframe(df, target_path.name)
 
         except Exception as e:
-            InfoBar.error("加载失败", str(e), parent=self)
+            InfoBar.error("加载失败", str(e), parent=self, duration=-1)
 
     def sync_file(self, current_df: pd.DataFrame, silent: bool = False) -> None:
         if not self.filepath:
@@ -461,10 +562,12 @@ class DataCenterWidget(QWidget):
 
             # Overwrite external file with current UI data
             suffix = Path(self.filepath).suffix.lower()
-            if suffix == ".csv":
-                current_df.to_csv(self.filepath, index=False)
-            else:
-                current_df.to_excel(self.filepath, engine="openpyxl", index=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=UserWarning)
+                if suffix == ".csv":
+                    current_df.to_csv(self.filepath, index=False)
+                else:
+                    current_df.to_excel(self.filepath, engine="openpyxl", index=False)
 
             self.df = current_df
             self._last_modified_time = os.path.getmtime(self.filepath)
@@ -488,18 +591,120 @@ class DataCenterWidget(QWidget):
                 InfoBar.success("同步成功", "界面修改已保存至文件并更新所有分析模块", parent=self, duration=2000)
 
         except Exception as e:
-            InfoBar.error("同步失败", str(e), parent=self)
+            InfoBar.error("同步失败", str(e), parent=self, duration=-1)
 
-    def _smart_read_and_clean(self, file_path: Path) -> pd.DataFrame | None:
-        """Smartly detects header within first 20 rows and drops all-NaN rows/cols."""
+    @staticmethod
+    def _fill_merged_cells(
+        df: pd.DataFrame,
+        merged_ranges: list[tuple[int, int, int, int]],
+    ) -> pd.DataFrame:
+        """Fill NaN cells inside merged ranges with the top-left value.
+
+        Parameters
+        ----------
+        df : DataFrame already read (0-indexed, header=None)
+        merged_ranges : list of (min_row, max_row, min_col, max_col) 1-indexed
+        """
+        nrows, ncols = df.shape
+        for min_row, max_row, min_col, max_col in merged_ranges:
+            if min_row > nrows or min_col > ncols:
+                continue
+            top_left = df.iloc[min_row - 1, min_col - 1]
+            if pd.isna(top_left):
+                continue
+            for r in range(min_row - 1, min(max_row, nrows)):
+                for c in range(min_col - 1, min(max_col, ncols)):
+                    if pd.isna(df.iloc[r, c]):
+                        df.iloc[r, c] = top_left
+        return df
+
+    @staticmethod
+    def _merge_double_headers(row1: pd.Series, row2: pd.Series) -> list[str]:
+        """Merge two header rows into a single row using underscore join."""
+        result: list[str] = []
+        row1_ffilled = row1.ffill()
+        for i in range(len(row1_ffilled)):
+            v1 = str(row1_ffilled.iloc[i]).strip() if pd.notna(row1_ffilled.iloc[i]) else ""
+            v2 = str(row2.iloc[i]).strip() if pd.notna(row2.iloc[i]) else ""
+            if v1 and v2 and v1 != v2:
+                result.append(f"{v1}_{v2}")
+            elif v1:
+                result.append(v1)
+            elif v2:
+                result.append(v2)
+            else:
+                result.append(f"col_{i}")
+        return result
+
+    @staticmethod
+    def _normalize_column_types(df: pd.DataFrame) -> pd.DataFrame:
+        """Ensure object columns that look like pure numeric strings stay as strings."""
+        for i in range(len(df.columns)):
+            series = df.iloc[:, i]
+            if series.dtype != object:
+                continue
+            non_null = series.dropna()
+            if non_null.empty:
+                continue
+            all_numeric = non_null.apply(
+                lambda x: (
+                    isinstance(x, (int, float))
+                    or (isinstance(x, str) and x.strip().replace(".", "", 1).replace("-", "", 1).isdigit())
+                )
+            )
+            if all_numeric.all():
+                df.iloc[:, i] = series.astype(str)
+        return df
+
+    def _smart_read_and_clean(
+        self,
+        file_path: Path,
+        sheet_name: str | int | None = None,
+    ) -> pd.DataFrame | None:
+        """Smartly detects header, handles merged cells & double headers, drops all-NaN rows/cols."""
         try:
             suffix = file_path.suffix.lower()
+            read_kw: dict[str, Any] = {}
+            if sheet_name is not None:
+                read_kw["sheet_name"] = sheet_name
+
             if suffix == ".csv":
                 raw_df = pd.read_csv(file_path, header=None, nrows=20)
             else:
-                raw_df = pd.read_excel(file_path, engine="openpyxl", header=None, nrows=20)
+                raw_df = pd.read_excel(
+                    file_path,
+                    engine="openpyxl",
+                    header=None,
+                    nrows=20,
+                    **read_kw,
+                )
 
-            # Find the row with the maximum number of non-null values to be the header
+            # --- Merged cells (Excel only) ---
+            merged_ranges: list[tuple[int, int, int, int]] = []
+            if suffix != ".csv":
+                try:
+                    from openpyxl import load_workbook
+
+                    wb = load_workbook(file_path, data_only=True)
+                    if sheet_name is not None and sheet_name in wb.sheetnames:
+                        ws = wb[sheet_name]
+                    elif sheet_name is not None and isinstance(sheet_name, int):
+                        ws = wb.worksheets[sheet_name]
+                    else:
+                        ws = wb.active
+                    if ws is not None:
+                        for mr in ws.merged_cells.ranges:
+                            merged_ranges.append(
+                                (mr.min_row, mr.max_row, mr.min_col, mr.max_col),
+                            )
+                    wb.close()
+                except Exception:
+                    pass
+
+                if merged_ranges:
+                    raw_df = self._fill_merged_cells(raw_df, merged_ranges)
+
+            # --- Find best header row ---
             best_header_idx = 0
             max_non_nulls = 0
             for i in range(len(raw_df)):
@@ -512,23 +717,73 @@ class DataCenterWidget(QWidget):
                 InfoBar.warning("未能识别有效数据", "在前 20 行中没有找到任何有效的表头或数据。", parent=self)
                 return None
 
-            # Read full dataframe with the detected header
+            # --- Double header detection (check adjacent row only) ---
+            merged_headers: list[str] | None = None
+            data_start: int | None = None
+
+            if best_header_idx + 1 < len(raw_df):
+                adj_row = raw_df.iloc[best_header_idx + 1]
+                adj_vals = adj_row.dropna()
+                adj_is_text = all(not isinstance(v, (int, float)) for v in adj_vals)
+                adj_count = len(adj_vals)
+                if adj_is_text and adj_count >= 2 and adj_count >= max_non_nulls * 0.3:
+                    merged_headers = self._merge_double_headers(
+                        raw_df.iloc[best_header_idx],
+                        adj_row,
+                    )
+                    data_start = best_header_idx + 2
+
+            # --- Read full dataframe ---
             if suffix == ".csv":
                 df = pd.read_csv(file_path, header=best_header_idx)
             else:
-                df = pd.read_excel(file_path, engine="openpyxl", header=best_header_idx)
+                if merged_headers is not None and data_start is not None:
+                    df = pd.read_excel(
+                        file_path,
+                        engine="openpyxl",
+                        header=None,
+                        skiprows=data_start,
+                        **read_kw,
+                    )
+                    df.columns = merged_headers[: len(df.columns)]
+                else:
+                    df = pd.read_excel(
+                        file_path,
+                        engine="openpyxl",
+                        header=best_header_idx,
+                        **read_kw,
+                    )
+
+            # Fill merged cells in the full data body
+            if merged_ranges and suffix != ".csv":
+                row_offset = data_start if data_start is not None else best_header_idx + 1
+                adjusted: list[tuple[int, int, int, int]] = []
+                for mr in merged_ranges:
+                    adj_min = mr[0] - 1 - row_offset
+                    adj_max = mr[1] - row_offset
+                    if adj_max < 0:
+                        continue
+                    adjusted.append((max(adj_min, 0) + 1, adj_max + 1, mr[2], mr[3]))
+                df = df.reset_index(drop=True)
+                if adjusted:
+                    df = self._fill_merged_cells(df, adjusted)
 
             # Clean empty rows and columns
             df = df.dropna(how="all", axis=0)
             df = df.dropna(how="all", axis=1)
 
+            # Normalize column types
+            df = self._normalize_column_types(df)
+
             # Save the cleaned dataframe back to the [Q]_ file
-            if suffix == ".csv":
-                df.to_csv(file_path, index=False)
-            else:
-                df.to_excel(file_path, engine="openpyxl", index=False)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=UserWarning)
+                if suffix == ".csv":
+                    df.to_csv(file_path, index=False)
+                else:
+                    df.to_excel(file_path, engine="openpyxl", index=False)
 
             return df
         except Exception as e:
-            InfoBar.error("数据清洗失败", f"无法自动识别表头或清洗数据: {e!s}", parent=self)
+            InfoBar.error("数据清洗失败", f"无法自动识别表头或清洗数据: {e!s}", parent=self, duration=-1)
             return None

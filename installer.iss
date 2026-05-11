@@ -2,7 +2,7 @@
 ; 使用方法: 安装 Inno Setup 6 后, 右键本文件 -> Compile
 
 #define MyAppName "Q-Caliper"
-#define MyAppVersion "1.0.1"
+#define MyAppVersion "1.0.2"
 #define MyAppPublisher "Q-Caliper"
 #define MyAppURL "https://github.com/chenyu244/Q-Caliper"
 #define MyAppExeName "Q-Caliper.exe"
