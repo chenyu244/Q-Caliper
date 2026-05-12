@@ -54,49 +54,34 @@ _setup_matplotlib_font()
 
 
 class GrrInputCard(CardWidget):
-    """GRR parameter and column mapping input with collapsible support."""
+    """GRR parameter and column mapping input following Cpk panel style."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.df: pd.DataFrame | None = None
-        self._collapsed = False
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(16, 12, 16, 12)
-        self.main_layout.setSpacing(0)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
 
         header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 0, 0)
         header = StrongBodyLabel("分析参数设置")
         header.setStyleSheet("font-size: 14px;")
         header_row.addWidget(header)
         header_row.addStretch()
-
-        self.toggle_btn = PushButton("")
-        self.toggle_btn.setIcon(FluentIcon.UP)
-        self.toggle_btn.setFixedSize(28, 28)
-        self.toggle_btn.setStyleSheet("PushButton { border: none; }")
-        self.toggle_btn.setToolTip("折叠/展开参数区")
-        self.toggle_btn.clicked.connect(self._toggle_collapse)
-        header_row.addWidget(self.toggle_btn)
-
-        self.main_layout.addLayout(header_row)
-
-        self.content_widget = QWidget()
-        self.content_layout = QVBoxLayout(self.content_widget)
-        self.content_layout.setContentsMargins(0, 8, 0, 0)
-        self.content_layout.setSpacing(0)
+        layout.addLayout(header_row)
 
         form_layout = QGridLayout()
         form_layout.setVerticalSpacing(8)
         form_layout.setHorizontalSpacing(20)
 
+        # Row 0: Labels
         form_layout.addWidget(QLabel("测量数据列:"), 0, 0)
         form_layout.addWidget(QLabel("操作者列:"), 0, 1)
         form_layout.addWidget(QLabel("零件列:"), 0, 2)
 
+        # Row 1: Combos
         self.measure_combo = QComboBox()
         self.measure_combo.setPlaceholderText("-- 测量数据列 --")
         self.measure_combo.setMinimumWidth(160)
@@ -115,10 +100,12 @@ class GrrInputCard(CardWidget):
         self.part_combo.setFixedHeight(32)
         form_layout.addWidget(self.part_combo, 1, 2)
 
+        # Row 2: Labels
         form_layout.addWidget(QLabel("零件数:"), 2, 0)
         form_layout.addWidget(QLabel("操作者数:"), 2, 1)
         form_layout.addWidget(QLabel("重复次数:"), 2, 2)
 
+        # Row 3: Spins
         self.n_parts_spin = QSpinBox()
         self.n_parts_spin.setRange(2, 100)
         self.n_parts_spin.setValue(10)
@@ -137,6 +124,7 @@ class GrrInputCard(CardWidget):
         self.n_trials_spin.setFixedHeight(32)
         form_layout.addWidget(self.n_trials_spin, 3, 2)
 
+        # Buttons on the right
         btn_layout = QVBoxLayout()
         btn_layout.setContentsMargins(0, 0, 0, 0)
         btn_layout.setSpacing(8)
@@ -156,20 +144,9 @@ class GrrInputCard(CardWidget):
         btn_layout.addWidget(self.report_btn)
 
         form_layout.addLayout(btn_layout, 0, 3, 4, 1, Qt.AlignmentFlag.AlignVCenter)
-        form_layout.setColumnStretch(1, 1)
+        form_layout.setColumnStretch(2, 1)
 
-        self.content_layout.addLayout(form_layout)
-        self.main_layout.addWidget(self.content_widget)
-
-    def _toggle_collapse(self) -> None:
-        if self.content_widget.parent() is not None:
-            self.main_layout.removeWidget(self.content_widget)
-            self.content_widget.setParent(None)
-            self.toggle_btn.setIcon(FluentIcon.DOWN)
-        else:
-            self.main_layout.addWidget(self.content_widget)
-            self.toggle_btn.setIcon(FluentIcon.UP)
-        self.main_layout.activate()
+        layout.addLayout(form_layout)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df
@@ -260,9 +237,9 @@ class GrrInputCard(CardWidget):
             result = calculate_grr(data_arr, n_parts, n_ops, n_trials)
 
             parent = self.parent()
-            while parent and not isinstance(parent, GrrPanelWidget):
+            while parent and not (hasattr(parent, "show_results") and isinstance(parent, QWidget)):
                 parent = parent.parent()
-            if isinstance(parent, GrrPanelWidget):
+            if parent and hasattr(parent, "show_results"):
                 parent.show_results(result, [str(p) for p in parts], [str(o) for o in operators])
                 self.report_btn.setEnabled(True)
 
@@ -274,7 +251,7 @@ class GrrInputCard(CardWidget):
         from q_caliper.ui.utils import generate_report_filename
 
         parent = self.parent()
-        while parent and not isinstance(parent, GrrPanelWidget):
+        while parent and not (hasattr(parent, "last_result") and isinstance(parent, QWidget)):
             parent = parent.parent()
 
         if not parent or parent.last_result is None:

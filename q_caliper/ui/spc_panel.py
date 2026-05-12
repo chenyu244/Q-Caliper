@@ -18,7 +18,7 @@ from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
     QFileDialog,
-    QFormLayout,
+    QGridLayout,
     QHBoxLayout,
     QLabel,
     QScrollArea,
@@ -73,7 +73,7 @@ TABLE_STYLE = """
 
 
 class SpcInputCard(CardWidget):
-    """SPC parameter input card with collapsible support."""
+    """SPC parameter input card following Cpk panel style (Grid layout, non-collapsible)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -81,71 +81,53 @@ class SpcInputCard(CardWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(16, 12, 16, 12)
-        self.main_layout.setSpacing(0)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
 
         header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 0, 0)
         header = StrongBodyLabel("分析参数设置")
         header.setStyleSheet("font-size: 14px;")
         header_row.addWidget(header)
         header_row.addStretch()
+        layout.addLayout(header_row)
 
-        self.report_btn = PushButton("导出 PDF")
-        self.report_btn.setIcon(FluentIcon.PRINT)
-        self.report_btn.setFixedWidth(130)
-        self.report_btn.setFixedHeight(28)
-        self.report_btn.clicked.connect(self._on_export_pdf)
-        self.report_btn.setEnabled(False)
-        header_row.addWidget(self.report_btn)
+        form_layout = QGridLayout()
+        form_layout.setVerticalSpacing(8)
+        form_layout.setHorizontalSpacing(20)
 
-        self.toggle_btn = PushButton("")
-        self.toggle_btn.setIcon(FluentIcon.UP)
-        self.toggle_btn.setFixedSize(28, 28)
-        self.toggle_btn.setStyleSheet("PushButton { border: none; }")
-        self.toggle_btn.setToolTip("折叠/展开参数区")
-        self.toggle_btn.clicked.connect(self._toggle_collapse)
-        header_row.addWidget(self.toggle_btn)
+        # Row 0: Labels
+        form_layout.addWidget(QLabel("图表类型:"), 0, 0)
+        form_layout.addWidget(QLabel("测量数据列:"), 0, 1)
 
-        self.main_layout.addLayout(header_row)
-
-        self.content_widget = QWidget()
-        content_layout = QVBoxLayout(self.content_widget)
-        content_layout.setContentsMargins(0, 8, 0, 0)
-        content_layout.setSpacing(0)
-
-        form = QFormLayout()
-        form.setSpacing(8)
-
-        self.chart_type_combo = QComboBox()
-        self.chart_type_combo.addItems(["XBar-R 控制图", "I-MR 控制图"])
-        self.chart_type_combo.currentIndexChanged.connect(self._on_chart_type_changed)
-        form.addRow("图表类型:", self.chart_type_combo)
-
-        self.measure_combo = QComboBox()
-        self.measure_combo.setPlaceholderText("-- 测量数据列 --")
-        self.measure_combo.setMinimumWidth(180)
-        self.measure_combo.setFixedHeight(32)
-        form.addRow("测量列:", self.measure_combo)
-
-        self.subgroup_spin = QSpinBox()
-        self.subgroup_spin.setRange(2, 10)
-        self.subgroup_spin.setValue(5)
-        self.subgroup_spin.setFixedHeight(32)
-        self.subgroup_spin.setToolTip("XBar-R 图的子组大小 (2-10)")
-        form.addRow("子组大小:", self.subgroup_spin)
-
-        spec_lbl_row = QHBoxLayout()
-        spec_lbl_row.setContentsMargins(0, 0, 0, 0)
-        spec_lbl_row.addWidget(QLabel("规格限 (LSL / USL):"))
+        spec_lbl_layout = QHBoxLayout()
+        spec_lbl_layout.setContentsMargins(0, 0, 0, 0)
+        spec_lbl_layout.addWidget(QLabel("规格限 (LSL / USL):"))
         self.magic_btn = PushButton("智能推荐")
         self.magic_btn.setFixedHeight(22)
         self.magic_btn.setStyleSheet("font-size: 11px; padding: 0 5px;")
         self.magic_btn.clicked.connect(self._show_spec_menu)
-        spec_lbl_row.addWidget(self.magic_btn)
-        spec_lbl_row.addStretch()
-        form.addRow(spec_lbl_row)
+        spec_lbl_layout.addWidget(self.magic_btn)
+        spec_lbl_layout.addStretch()
+        form_layout.addLayout(spec_lbl_layout, 0, 2)
+
+        sg_lbl_layout = QHBoxLayout()
+        sg_lbl_layout.setContentsMargins(0, 0, 0, 0)
+        sg_lbl_layout.addWidget(QLabel("子组大小:"))
+        form_layout.addLayout(sg_lbl_layout, 0, 3)
+
+        # Row 1: Controls
+        self.chart_type_combo = QComboBox()
+        self.chart_type_combo.addItems(["XBar-R 控制图", "I-MR 控制图"])
+        self.chart_type_combo.setMinimumWidth(140)
+        self.chart_type_combo.setFixedHeight(32)
+        self.chart_type_combo.currentIndexChanged.connect(self._on_chart_type_changed)
+        form_layout.addWidget(self.chart_type_combo, 1, 0)
+
+        self.measure_combo = QComboBox()
+        self.measure_combo.setMinimumWidth(160)
+        self.measure_combo.setFixedHeight(32)
+        self.measure_combo.setPlaceholderText("-- 选择列 --")
+        form_layout.addWidget(self.measure_combo, 1, 1)
 
         spec_input_row = QHBoxLayout()
         spec_input_row.setContentsMargins(0, 0, 0, 0)
@@ -156,6 +138,7 @@ class SpcInputCard(CardWidget):
         self.lsl_spin.setValue(-1e12)
         self.lsl_spin.setFixedHeight(32)
         spec_input_row.addWidget(self.lsl_spin)
+
         self.usl_spin = QDoubleSpinBox()
         self.usl_spin.setRange(-1e12, 1e12)
         self.usl_spin.setDecimals(4)
@@ -163,31 +146,37 @@ class SpcInputCard(CardWidget):
         self.usl_spin.setValue(-1e12)
         self.usl_spin.setFixedHeight(32)
         spec_input_row.addWidget(self.usl_spin)
-        form.addRow(spec_input_row)
+        form_layout.addLayout(spec_input_row, 1, 2)
 
-        content_layout.addLayout(form)
+        self.subgroup_spin = QSpinBox()
+        self.subgroup_spin.setRange(1, 100)
+        self.subgroup_spin.setValue(5)
+        self.subgroup_spin.setFixedHeight(32)
+        form_layout.addWidget(self.subgroup_spin, 1, 3)
 
-        btn_row = QHBoxLayout()
-        btn_row.setContentsMargins(0, 8, 0, 0)
-        self.calc_btn = PrimaryPushButton("生成控制图")
+        # Buttons on the right
+        btn_layout = QVBoxLayout()
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(8)
+        self.calc_btn = PrimaryPushButton("执行分析")
         self.calc_btn.setIcon(FluentIcon.PLAY)
+        self.calc_btn.setFixedWidth(120)
         self.calc_btn.setFixedHeight(32)
         self.calc_btn.clicked.connect(self._on_calculate)
-        btn_row.addWidget(self.calc_btn)
-        btn_row.addStretch()
-        content_layout.addLayout(btn_row)
+        btn_layout.addWidget(self.calc_btn)
 
-        self.main_layout.addWidget(self.content_widget)
+        self.report_btn = PushButton("导出 PDF")
+        self.report_btn.setIcon(FluentIcon.PRINT)
+        self.report_btn.setFixedWidth(120)
+        self.report_btn.setFixedHeight(32)
+        self.report_btn.clicked.connect(self._on_export_pdf)
+        self.report_btn.setEnabled(False)
+        btn_layout.addWidget(self.report_btn)
 
-    def _toggle_collapse(self) -> None:
-        if self.content_widget.parent() is not None:
-            self.main_layout.removeWidget(self.content_widget)
-            self.content_widget.setParent(None)
-            self.toggle_btn.setIcon(FluentIcon.DOWN)
-        else:
-            self.main_layout.addWidget(self.content_widget)
-            self.toggle_btn.setIcon(FluentIcon.UP)
-        self.main_layout.activate()
+        form_layout.addLayout(btn_layout, 0, 4, 2, 1, Qt.AlignmentFlag.AlignVCenter)
+        form_layout.setColumnStretch(2, 1)
+
+        layout.addLayout(form_layout)
 
     def _on_chart_type_changed(self, index: int) -> None:
         pass

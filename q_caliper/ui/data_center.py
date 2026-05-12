@@ -273,7 +273,7 @@ class DataPreviewWidget(QWidget):
         mapping = self.get_role_mapping()
         main_win = self.window()
 
-        # 多测量值筛选
+        # Handle multiple measurement columns
         if "测量值" in mapping and len(mapping["测量值"]) > 1:
             col, ok = QInputDialog.getItem(
                 self,
@@ -288,13 +288,31 @@ class DataPreviewWidget(QWidget):
             else:
                 return
 
+        # Special handling for merged MSA/GRR panel
+        if panel_attr == "grr_panel":
+            panel_attr = "msa_panel"
+
         target_panel = getattr(main_win, panel_attr, None)
         if target_panel and hasattr(main_win, "switchTo"):
             if hasattr(target_panel, "set_selected_columns"):
                 target_panel.set_selected_columns(mapping)
+
+            # If navigating to MSA for GRR, ensure the GRR tab is selected
+            if panel_attr == "msa_panel" and hasattr(target_panel, "pivot"):
+                target_panel.pivot.setCurrentItem("grr")
+                if hasattr(target_panel, "stacked_widget") and hasattr(target_panel, "grr_interface"):
+                    target_panel.stacked_widget.setCurrentWidget(target_panel.grr_interface)
+
             main_win.switchTo(target_panel)
         else:
-            InfoBar.warning("分析推荐", "请先通过双击表头为列分配角色（如：测量值、零件、操作者）", parent=self)
+            # Only show warning if navigation target is fundamentally missing or roles aren't mapped
+            recs = self._get_recommendations()
+            if not recs:
+                InfoBar.warning(
+                    "分析推荐", "请先通过双击表头为列分配角色（如：测量值、零件、操作者）", parent=self, duration=-1
+                )
+            else:
+                InfoBar.error("系统错误", f"无法定位分析模块: {panel_attr}", parent=self, duration=-1)
 
     def get_role_mapping(self) -> dict[str, list[str]]:
         """Extract mapping of roles to column names from the table."""

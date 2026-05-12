@@ -18,14 +18,12 @@ from PySide6.QtWidgets import (
     QFileDialog,
     QFormLayout,
     QHBoxLayout,
-    QLabel,
     QScrollArea,
     QSizePolicy,
     QVBoxLayout,
     QWidget,
 )
 from qfluentwidgets import (
-    BodyLabel,
     CardWidget,
     FluentIcon,
     InfoBar,
@@ -33,6 +31,7 @@ from qfluentwidgets import (
     PushButton,
     StrongBodyLabel,
     TitleLabel,
+    SegmentedWidget,
 )
 
 from typing import TYPE_CHECKING
@@ -41,6 +40,7 @@ if TYPE_CHECKING:
     import numpy.typing as npt
 
 from q_caliper.core.msa import analyze_bias, analyze_linearity, BiasResult, LinearResult
+from q_caliper.ui.grr_panel import GrrInputCard, GrrChartsDashboard, GrrResult
 
 
 def _setup_matplotlib_font() -> None:
@@ -54,7 +54,7 @@ _setup_matplotlib_font()
 
 
 class MsaInputCard(CardWidget):
-    """Unified MSA parameter input: bias and linearity side by side."""
+    """Unified MSA parameter input following Cpk panel style."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -62,48 +62,36 @@ class MsaInputCard(CardWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(16, 12, 16, 12)
-        self.main_layout.setSpacing(0)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
 
         header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 0, 0)
         header = StrongBodyLabel("分析参数设置")
         header.setStyleSheet("font-size: 14px;")
         header_row.addWidget(header)
         header_row.addStretch()
 
-        self.report_btn = PushButton("导出 PDF")
+        self.report_btn = PushButton("导出 PDF 报告")
         self.report_btn.setIcon(FluentIcon.PRINT)
         self.report_btn.setFixedWidth(130)
-        self.report_btn.setFixedHeight(28)
+        self.report_btn.setFixedHeight(30)
         self.report_btn.clicked.connect(self._on_export_pdf)
         self.report_btn.setEnabled(False)
         header_row.addWidget(self.report_btn)
+        layout.addLayout(header_row)
 
-        self.toggle_btn = PushButton("")
-        self.toggle_btn.setIcon(FluentIcon.UP)
-        self.toggle_btn.setFixedSize(28, 28)
-        self.toggle_btn.setStyleSheet("PushButton { border: none; }")
-        self.toggle_btn.setToolTip("折叠/展开参数区")
-        self.toggle_btn.clicked.connect(self._toggle_collapse)
-        header_row.addWidget(self.toggle_btn)
-
-        self.main_layout.addLayout(header_row)
-
-        self.content_widget = QWidget()
-        content_layout = QHBoxLayout(self.content_widget)
+        content_layout = QHBoxLayout()
         content_layout.setContentsMargins(0, 8, 0, 0)
         content_layout.setSpacing(20)
 
         # ── Left: Bias inputs ──
         bias_card = CardWidget()
-        bias_card.setStyleSheet("CardWidget { border: 1px solid #e0e0e0; border-radius: 6px; }")
+        bias_card.setStyleSheet("CardWidget { border: 1px solid #e0e0e0; border-radius: 6px; background: #fbfbfb; }")
         bias_layout = QVBoxLayout(bias_card)
         bias_layout.setContentsMargins(12, 8, 12, 8)
 
         bias_title = StrongBodyLabel("偏差分析 (Bias)")
-        bias_title.setStyleSheet("font-size: 13px;")
+        bias_title.setStyleSheet("font-size: 13px; color: #0078D4;")
         bias_layout.addWidget(bias_title)
 
         bias_form = QFormLayout()
@@ -120,7 +108,6 @@ class MsaInputCard(CardWidget):
         self.ref_spin.setDecimals(4)
         self.ref_spin.setValue(0.0)
         self.ref_spin.setFixedHeight(30)
-        self.ref_spin.setToolTip("标称真值: 量具应测量到的理论正确值")
         bias_form.addRow("参考值 (标称真值):", self.ref_spin)
 
         bias_layout.addLayout(bias_form)
@@ -135,12 +122,12 @@ class MsaInputCard(CardWidget):
 
         # ── Right: Linearity inputs ──
         lin_card = CardWidget()
-        lin_card.setStyleSheet("CardWidget { border: 1px solid #e0e0e0; border-radius: 6px; }")
+        lin_card.setStyleSheet("CardWidget { border: 1px solid #e0e0e0; border-radius: 6px; background: #fbfbfb; }")
         lin_layout = QVBoxLayout(lin_card)
         lin_layout.setContentsMargins(12, 8, 12, 8)
 
         lin_title = StrongBodyLabel("线性分析 (Linearity)")
-        lin_title.setStyleSheet("font-size: 13px;")
+        lin_title.setStyleSheet("font-size: 13px; color: #0078D4;")
         lin_layout.addWidget(lin_title)
 
         lin_form = QFormLayout()
@@ -156,39 +143,14 @@ class MsaInputCard(CardWidget):
         self.lin_measure_combo.setPlaceholderText("-- 选择测量列 --")
         self.lin_measure_combo.setMinimumWidth(160)
         self.lin_measure_combo.setFixedHeight(30)
-        lin_form.addRow("测量数据列:", self.lin_measure_combo)
+        lin_form.addRow("测量值列:", self.lin_measure_combo)
 
-        spec_lbl_row = QHBoxLayout()
-        spec_lbl_row.setContentsMargins(0, 0, 0, 0)
-        spec_lbl = QLabel("规格限 (LSL / USL):")
-        spec_lbl_row.addWidget(spec_lbl)
-        spec_help = PushButton("")
-        spec_help.setIcon(FluentIcon.QUESTION)
-        spec_help.setFixedSize(20, 20)
-        spec_help.setToolTip(
-            "与 Cpk 分析中的规格限相同。\n填写后过程变异 PV = USL - LSL。\n不填写则自动使用 PV = 6 x StdDev。"
-        )
-        spec_lbl_row.addWidget(spec_help)
-        spec_lbl_row.addStretch()
-        lin_form.addRow(spec_lbl_row)
-
-        spec_input_row = QHBoxLayout()
-        spec_input_row.setContentsMargins(0, 0, 0, 0)
-        self.lsl_spin = QDoubleSpinBox()
-        self.lsl_spin.setRange(-1e12, 1e12)
-        self.lsl_spin.setDecimals(4)
-        self.lsl_spin.setSpecialValueText("无")
-        self.lsl_spin.setValue(-1e12)
-        self.lsl_spin.setFixedHeight(30)
-        spec_input_row.addWidget(self.lsl_spin)
-        self.usl_spin = QDoubleSpinBox()
-        self.usl_spin.setRange(-1e12, 1e12)
-        self.usl_spin.setDecimals(4)
-        self.usl_spin.setSpecialValueText("无")
-        self.usl_spin.setValue(-1e12)
-        self.usl_spin.setFixedHeight(30)
-        spec_input_row.addWidget(self.usl_spin)
-        lin_form.addRow(spec_input_row)
+        self.pv_spin = QDoubleSpinBox()
+        self.pv_spin.setRange(0, 1e12)
+        self.pv_spin.setDecimals(4)
+        self.pv_spin.setValue(0.0)
+        self.pv_spin.setFixedHeight(30)
+        lin_form.addRow("过程变异 (6\u03c3):", self.pv_spin)
 
         lin_layout.addLayout(lin_form)
 
@@ -200,17 +162,7 @@ class MsaInputCard(CardWidget):
 
         content_layout.addWidget(lin_card)
 
-        self.main_layout.addWidget(self.content_widget)
-
-    def _toggle_collapse(self) -> None:
-        if self.content_widget.parent() is not None:
-            self.main_layout.removeWidget(self.content_widget)
-            self.content_widget.setParent(None)
-            self.toggle_btn.setIcon(FluentIcon.DOWN)
-        else:
-            self.main_layout.addWidget(self.content_widget)
-            self.toggle_btn.setIcon(FluentIcon.UP)
-        self.main_layout.activate()
+        layout.addLayout(content_layout)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df
@@ -256,9 +208,9 @@ class MsaInputCard(CardWidget):
         try:
             result = analyze_bias(data, ref_val)
             parent = self.parent()
-            while parent and not isinstance(parent, MsaPanelWidget):
+            while parent and not isinstance(parent, PositionAnalysisPanel):
                 parent = parent.parent()
-            if isinstance(parent, MsaPanelWidget):
+            if isinstance(parent, PositionAnalysisPanel):
                 parent.show_bias_results(data, result, col)
                 self.report_btn.setEnabled(True)
         except Exception as e:
@@ -299,9 +251,9 @@ class MsaInputCard(CardWidget):
             result = analyze_linearity(unique_refs, avg_means, pv)
 
             parent = self.parent()
-            while parent and not isinstance(parent, MsaPanelWidget):
+            while parent and not isinstance(parent, PositionAnalysisPanel):
                 parent = parent.parent()
-            if isinstance(parent, MsaPanelWidget):
+            if isinstance(parent, PositionAnalysisPanel):
                 parent.show_linear_results(unique_refs, avg_means, result, pv)
                 self.report_btn.setEnabled(True)
         except Exception as e:
@@ -312,7 +264,7 @@ class MsaInputCard(CardWidget):
         from q_caliper.ui.utils import generate_report_filename
 
         parent = self.parent()
-        while parent and not isinstance(parent, MsaPanelWidget):
+        while parent and not isinstance(parent, PositionAnalysisPanel):
             parent = parent.parent()
 
         if not parent:
@@ -500,12 +452,11 @@ class MsaChartsDashboard(QWidget):
         self.canvas_linear.draw()
 
 
-class MsaPanelWidget(QWidget):
-    """MSA analysis page with bias and linearity."""
+class PositionAnalysisPanel(QWidget):
+    """Original MSA analysis page (bias and linearity) renamed for integration."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setObjectName("msa_panel")
         self.df: pd.DataFrame | None = None
         self.last_bias_result: BiasResult | None = None
         self.last_linear_result: LinearResult | None = None
@@ -517,28 +468,17 @@ class MsaPanelWidget(QWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(20, 10, 20, 20)
-        main_layout.setSpacing(15)
-
-        header_row = QHBoxLayout()
-        header = TitleLabel("测量系统分析 (MSA)")
-        header.setStyleSheet("font-size: 20px; font-weight: bold;")
-        header_row.addWidget(header)
-        header_row.addStretch()
-        main_layout.addLayout(header_row)
-
-        desc = BodyLabel("偏差分析与线性分析, 符合 IATF 16949 MSA 要求")
-        desc.setStyleSheet("color: #666; margin-bottom: 2px;")
-        main_layout.addWidget(desc)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 10, 0, 0)
+        layout.setSpacing(15)
 
         self.input_card = MsaInputCard(self)
-        main_layout.addWidget(self.input_card)
+        layout.addWidget(self.input_card)
 
         self.charts = MsaChartsDashboard(self)
-        main_layout.addWidget(self.charts, 1)
+        layout.addWidget(self.charts, 1)
 
-    def set_dataframe(self, df: pd.DataFrame, filename: str) -> None:
+    def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df
         self.input_card.set_dataframe(df)
 
@@ -563,3 +503,90 @@ class MsaPanelWidget(QWidget):
         self.last_linear_means = means
         self.last_process_variation = process_variation
         self.charts.plot_linearity(result)
+
+
+class GrrAnalysisPanel(QWidget):
+    """GRR analysis page integrated from grr_panel.py."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.df: pd.DataFrame | None = None
+        self.last_result: GrrResult | None = None
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 10, 0, 0)
+        layout.setSpacing(15)
+
+        self.input_card = GrrInputCard(self)
+        layout.addWidget(self.input_card)
+
+        self.charts = GrrChartsDashboard(self)
+        layout.addWidget(self.charts, 1)
+
+    def set_dataframe(self, df: pd.DataFrame) -> None:
+        self.df = df
+        self.input_card.set_dataframe(df)
+
+    def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
+        self.input_card.set_selected_columns(mapping)
+
+    def show_results(self, result: GrrResult, part_names: list[str], operator_names: list[str]) -> None:
+        self.last_result = result
+        self.charts.plot_all(result, part_names, operator_names)
+
+
+class MsaPanelWidget(QWidget):
+    """Unified MSA interface with GRR and Position Analysis tabs."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("msa_panel")
+        self._setup_ui()
+
+    def _setup_ui(self) -> None:
+        self.main_layout = QVBoxLayout(self)
+        self.main_layout.setContentsMargins(20, 10, 20, 20)
+        self.main_layout.setSpacing(10)
+
+        # Header
+        header_row = QHBoxLayout()
+        header = TitleLabel("测量系统分析 (MSA)")
+        header.setStyleSheet("font-size: 20px; font-weight: bold;")
+        header_row.addWidget(header)
+        header_row.addStretch()
+        self.main_layout.addLayout(header_row)
+
+        # Tab Switcher
+        self.pivot = SegmentedWidget(self)
+        self.pivot.setFixedWidth(400)
+
+        from PySide6.QtWidgets import QStackedWidget
+
+        self.stacked_widget = QStackedWidget(self)
+
+        self.grr_interface = GrrAnalysisPanel(self)
+        self.pos_interface = PositionAnalysisPanel(self)
+
+        self._add_tab(self.grr_interface, "grr", "量具 R&R (GRR)")
+        self._add_tab(self.pos_interface, "position", "位置分析 (偏倚/线性)")
+
+        self.main_layout.addWidget(self.pivot, 0, Qt.AlignmentFlag.AlignLeft)
+        self.main_layout.addWidget(self.stacked_widget, 1)
+
+        self.pivot.setCurrentItem("grr")
+        self.stacked_widget.setCurrentWidget(self.grr_interface)
+
+    def _add_tab(self, widget: QWidget, name: str, text: str) -> None:
+        widget.setObjectName(name)
+        self.stacked_widget.addWidget(widget)
+        self.pivot.addItem(routeKey=name, text=text, onClick=lambda: self.stacked_widget.setCurrentWidget(widget))
+
+    def set_dataframe(self, df: pd.DataFrame, filename: str) -> None:
+        self.grr_interface.set_dataframe(df)
+        self.pos_interface.set_dataframe(df)
+
+    def set_selected_columns(self, mapping: dict[str, list[str]]) -> None:
+        self.grr_interface.set_selected_columns(mapping)
+        self.pos_interface.set_selected_columns(mapping)

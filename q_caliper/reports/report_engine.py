@@ -45,6 +45,14 @@ class ReportConfig:
     author: str = ""
     date: str = field(default_factory=lambda: datetime.now().strftime("%Y-%m-%d"))
 
+    @classmethod
+    def from_app_config(cls) -> ReportConfig:
+        """Create a ReportConfig from the persistent AppConfig."""
+        from q_caliper.core.config import AppConfig
+
+        ac = AppConfig.load()
+        return cls(company_name=ac.company_name, author=ac.author)
+
 
 @dataclass
 class ReportData:
@@ -131,7 +139,7 @@ def render_report(
     import shutil
 
     if config is None:
-        config = ReportConfig()
+        config = ReportConfig.from_app_config()
 
     template_path = TEMPLATE_DIR / f"{template_name}.typ"
     if not template_path.exists():

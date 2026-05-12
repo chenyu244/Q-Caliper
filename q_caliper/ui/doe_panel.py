@@ -17,8 +17,9 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QFileDialog,
-    QFormLayout,
+    QGridLayout,
     QHBoxLayout,
+    QLabel,
     QScrollArea,
     QSpinBox,
     QVBoxLayout,
@@ -68,7 +69,7 @@ _setup_matplotlib_font()
 
 
 class DoeInputCard(CardWidget):
-    """DOE design generation input with collapsible support."""
+    """DOE design generation input following Cpk panel style."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -76,125 +77,97 @@ class DoeInputCard(CardWidget):
         self._setup_ui()
 
     def _setup_ui(self) -> None:
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(16, 12, 16, 12)
-        self.main_layout.setSpacing(0)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 12, 16, 12)
 
         header_row = QHBoxLayout()
-        header_row.setContentsMargins(0, 0, 0, 0)
         header = StrongBodyLabel("分析参数设置")
         header.setStyleSheet("font-size: 14px;")
         header_row.addWidget(header)
         header_row.addStretch()
+        layout.addLayout(header_row)
 
-        self.report_btn = PushButton("导出 PDF")
-        self.report_btn.setIcon(FluentIcon.PRINT)
-        self.report_btn.setFixedWidth(130)
-        self.report_btn.setFixedHeight(28)
-        self.report_btn.clicked.connect(self._on_export_pdf)
-        self.report_btn.setEnabled(False)
-        header_row.addWidget(self.report_btn)
+        form_layout = QGridLayout()
+        form_layout.setVerticalSpacing(8)
+        form_layout.setHorizontalSpacing(20)
 
-        self.toggle_btn = PushButton("")
-        self.toggle_btn.setIcon(FluentIcon.UP)
-        self.toggle_btn.setFixedSize(28, 28)
-        self.toggle_btn.setStyleSheet("PushButton { border: none; }")
-        self.toggle_btn.setToolTip("折叠/展开参数区")
-        self.toggle_btn.clicked.connect(self._toggle_collapse)
-        header_row.addWidget(self.toggle_btn)
+        # Labels
+        form_layout.addWidget(QLabel("设计类型:"), 0, 0)
+        form_layout.addWidget(QLabel("因子数:"), 0, 1)
+        form_layout.addWidget(QLabel("关注结果数:"), 0, 2)
 
-        self.main_layout.addLayout(header_row)
-
-        self.content_widget = QWidget()
-        content_layout = QHBoxLayout(self.content_widget)
-        content_layout.setContentsMargins(0, 8, 0, 0)
-        content_layout.setSpacing(16)
-
-        left_widget = QWidget()
-        left_layout = QVBoxLayout(left_widget)
-        left_layout.setContentsMargins(0, 0, 0, 0)
-        left_layout.setSpacing(8)
-
-        left_header = BodyLabel("设计生成")
-        left_header.setStyleSheet("font-weight: bold; font-size: 12px;")
-        left_layout.addWidget(left_header)
-
-        left_form = QFormLayout()
-        left_form.setSpacing(8)
-
+        # Controls
         self.design_type_combo = QComboBox()
         self.design_type_combo.addItems(["全因子 (2^k)", "部分因子 (2^(k-1))"])
-        left_form.addRow("设计类型:", self.design_type_combo)
+        self.design_type_combo.setMinimumWidth(160)
+        self.design_type_combo.setFixedHeight(32)
+        form_layout.addWidget(self.design_type_combo, 1, 0)
 
         self.n_factors_spin = QSpinBox()
         self.n_factors_spin.setRange(2, 8)
         self.n_factors_spin.setValue(3)
-        left_form.addRow("因子数:", self.n_factors_spin)
+        self.n_factors_spin.setFixedHeight(32)
+        form_layout.addWidget(self.n_factors_spin, 1, 1)
 
         self.n_responses_spin = QSpinBox()
         self.n_responses_spin.setRange(1, 10)
         self.n_responses_spin.setValue(1)
-        self.n_responses_spin.setToolTip("关注的结果列数量")
-        left_form.addRow("关注结果数:", self.n_responses_spin)
+        self.n_responses_spin.setFixedHeight(32)
+        form_layout.addWidget(self.n_responses_spin, 1, 2)
 
-        left_layout.addLayout(left_form)
+        # Buttons
+        btn_layout = QVBoxLayout()
+        btn_layout.setContentsMargins(0, 0, 0, 0)
+        btn_layout.setSpacing(8)
 
-        self.gen_btn = PrimaryPushButton("生成设计矩阵")
+        row_btn_layout = QHBoxLayout()
+        self.gen_btn = PrimaryPushButton("生成设计")
         self.gen_btn.setIcon(FluentIcon.PLAY)
+        self.gen_btn.setFixedWidth(100)
         self.gen_btn.setFixedHeight(32)
         self.gen_btn.clicked.connect(self._on_generate)
-        left_layout.addWidget(self.gen_btn)
+        row_btn_layout.addWidget(self.gen_btn)
 
-        self.export_btn = PrimaryPushButton("导出 Excel")
+        self.export_btn = PushButton("导出 Excel")
         self.export_btn.setIcon(FluentIcon.SAVE)
+        self.export_btn.setFixedWidth(100)
         self.export_btn.setFixedHeight(32)
-        self.export_btn.setEnabled(False)
-        self.export_btn.clicked.connect(self._on_export)
-        left_layout.addWidget(self.export_btn)
+        self.export_btn.clicked.connect(self._on_export_excel)
+        row_btn_layout.addWidget(self.export_btn)
+        btn_layout.addLayout(row_btn_layout)
 
-        content_layout.addWidget(left_widget)
+        self.report_btn = PushButton("导出 PDF 报告")
+        self.report_btn.setIcon(FluentIcon.PRINT)
+        self.report_btn.setFixedHeight(32)
+        self.report_btn.clicked.connect(self._on_export_pdf)
+        self.report_btn.setEnabled(False)
+        btn_layout.addWidget(self.report_btn)
 
-        right_widget = QWidget()
-        right_layout = QVBoxLayout(right_widget)
-        right_layout.setContentsMargins(0, 0, 0, 0)
-        right_layout.setSpacing(8)
+        form_layout.addLayout(btn_layout, 0, 3, 2, 1, Qt.AlignmentFlag.AlignVCenter)
+        form_layout.setColumnStretch(2, 1)
 
-        right_header = BodyLabel("响应分析")
-        right_header.setStyleSheet("font-weight: bold; font-size: 12px;")
-        right_layout.addWidget(right_header)
+        layout.addLayout(form_layout)
 
-        right_form = QFormLayout()
-        right_form.setSpacing(8)
+        # Bottom: Response variable selection for analysis
+        resp_layout = QHBoxLayout()
+        resp_layout.setContentsMargins(0, 8, 0, 0)
+        resp_layout.setSpacing(10)
 
+        resp_layout.addWidget(QLabel("响应变量列:"))
         self.response_combo = QComboBox()
-        self.response_combo.setPlaceholderText("-- 响应变量列 --")
+        self.response_combo.setPlaceholderText("-- 选择响应变量 --")
         self.response_combo.setMinimumWidth(180)
         self.response_combo.setFixedHeight(32)
-        right_form.addRow("响应列:", self.response_combo)
-
-        right_layout.addLayout(right_form)
+        resp_layout.addWidget(self.response_combo)
 
         self.calc_btn = PrimaryPushButton("计算因子效应")
         self.calc_btn.setIcon(FluentIcon.PLAY)
         self.calc_btn.setFixedHeight(32)
         self.calc_btn.clicked.connect(self._on_calculate)
-        right_layout.addWidget(self.calc_btn)
+        resp_layout.addWidget(self.calc_btn)
 
-        right_layout.addStretch()
-
-        content_layout.addWidget(right_widget)
-
-        self.main_layout.addWidget(self.content_widget)
-
-    def _toggle_collapse(self) -> None:
-        if self.content_widget.parent() is not None:
-            self.main_layout.removeWidget(self.content_widget)
-            self.content_widget.setParent(None)
-            self.toggle_btn.setIcon(FluentIcon.DOWN)
-        else:
-            self.main_layout.addWidget(self.content_widget)
-            self.toggle_btn.setIcon(FluentIcon.UP)
-        self.main_layout.activate()
+        resp_layout.addStretch()
+        layout.addLayout(resp_layout)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df
@@ -237,7 +210,7 @@ class DoeInputCard(CardWidget):
         except Exception as e:
             InfoBar.error("生成错误", str(e), parent=self, duration=-1)
 
-    def _on_export(self) -> None:
+    def _on_export_excel(self) -> None:
         if not hasattr(self, "current_design"):
             return
 

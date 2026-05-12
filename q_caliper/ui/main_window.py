@@ -29,7 +29,7 @@ class MainWindow(FluentWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Q-Caliper v1.0")
+        self.setWindowTitle("Q-Caliper v1.0.3")
         self.resize(960, 680)
         self.setMinimumSize(QSize(800, 550))
 
@@ -44,14 +44,12 @@ class MainWindow(FluentWindow):
         from q_caliper.ui.cpk_panel import CpkPanelWidget
         from q_caliper.ui.data_center import DataCenterWidget
         from q_caliper.ui.doe_panel import DoePanelWidget
-        from q_caliper.ui.grr_panel import GrrPanelWidget
         from q_caliper.ui.msa_panel import MsaPanelWidget
         from q_caliper.ui.settings_panel import SettingsPanelWidget
         from q_caliper.ui.spc_panel import SpcPanelWidget
 
         self.data_center = DataCenterWidget(self)
         self.cpk_panel = CpkPanelWidget(self)
-        self.grr_panel = GrrPanelWidget(self)
         self.msa_panel = MsaPanelWidget(self)
         self.spc_panel = SpcPanelWidget(self)
         self.doe_panel = DoePanelWidget(self)
@@ -59,7 +57,6 @@ class MainWindow(FluentWindow):
 
         self.addSubInterface(self.data_center, FluentIcon.HOME, "数据中心")
         self.addSubInterface(self.cpk_panel, FluentIcon.PIE_SINGLE, "正态分析")
-        self.addSubInterface(self.grr_panel, FluentIcon.PEOPLE, "量具分析")
         self.addSubInterface(self.msa_panel, FluentIcon.SPEED_HIGH, "MSA 分析")
         self.addSubInterface(self.spc_panel, FluentIcon.SPEED_MEDIUM, "SPC 分析")
         self.addSubInterface(self.doe_panel, FluentIcon.LAYOUT, "实验设计 (DOE)")
