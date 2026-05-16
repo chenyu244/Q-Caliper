@@ -128,26 +128,54 @@ def calculate_grr(
     ms_interaction = ss_interaction / df_interaction if df_interaction > 0 else 0.0
     ms_error = ss_error / df_error if df_error > 0 else 0.0
 
-    f_parts = ms_parts / ms_error if ms_error > 0 else 0.0
-    f_operators = ms_operators / ms_error if ms_error > 0 else 0.0
     f_interaction = ms_interaction / ms_error if ms_error > 0 else 0.0
-
-    p_parts = float(1 - sp_stats.f.cdf(f_parts, df_parts, df_error)) if df_error > 0 else 1.0
-    p_operators = float(1 - sp_stats.f.cdf(f_operators, df_operators, df_error)) if df_error > 0 else 1.0
     p_interaction = float(1 - sp_stats.f.cdf(f_interaction, df_interaction, df_error)) if df_error > 0 else 1.0
 
-    anova_table = [
-        AnovaRow("零件 (Parts)", ss_parts, df_parts, ms_parts, f_parts, p_parts),
-        AnovaRow("操作者 (Operators)", ss_operators, df_operators, ms_operators, f_operators, p_operators),
-        AnovaRow("交互 (Interaction)", ss_interaction, df_interaction, ms_interaction, f_interaction, p_interaction),
-        AnovaRow("重复性 (Error)", ss_error, df_error, ms_error, 0.0, 0.0),
-        AnovaRow("合计 (Total)", ss_total, df_parts + df_operators + df_interaction + df_error, 0.0, 0.0, 0.0),
-    ]
+    if p_interaction >= 0.25:
+        # 合并交互项 (Pool Interaction)
+        ss_pool = ss_interaction + ss_error
+        df_pool = df_interaction + df_error
+        ms_pool = ss_pool / df_pool if df_pool > 0 else 0.0
 
-    var_repeatability = ms_error
-    var_interaction = max(0.0, (ms_interaction - ms_error) / n_trials)
-    var_reproducibility = max(0.0, (ms_operators - ms_error) / (n_parts * n_trials))
-    var_parts = max(0.0, (ms_parts - ms_error) / (n_operators * n_trials))
+        f_parts = ms_parts / ms_pool if ms_pool > 0 else 0.0
+        f_operators = ms_operators / ms_pool if ms_pool > 0 else 0.0
+        p_parts = float(1 - sp_stats.f.cdf(f_parts, df_parts, df_pool)) if df_pool > 0 else 1.0
+        p_operators = float(1 - sp_stats.f.cdf(f_operators, df_operators, df_pool)) if df_pool > 0 else 1.0
+
+        anova_table = [
+            AnovaRow("零件 (Parts)", ss_parts, df_parts, ms_parts, f_parts, p_parts),
+            AnovaRow("操作者 (Operators)", ss_operators, df_operators, ms_operators, f_operators, p_operators),
+            AnovaRow("重复性 (Error)", ss_pool, df_pool, ms_pool, 0.0, 0.0),
+            AnovaRow("合计 (Total)", ss_total, df_parts + df_operators + df_pool, 0.0, 0.0, 0.0),
+        ]
+
+        var_repeatability = ms_pool
+        var_interaction = 0.0
+        var_reproducibility = max(0.0, (ms_operators - ms_pool) / (n_parts * n_trials))
+        var_parts = max(0.0, (ms_parts - ms_pool) / (n_operators * n_trials))
+    else:
+        # 不合并 (使用混合模型计算F值)
+        f_parts = ms_parts / ms_interaction if ms_interaction > 0 else 0.0
+        f_operators = ms_operators / ms_interaction if ms_interaction > 0 else 0.0
+        p_parts = float(1 - sp_stats.f.cdf(f_parts, df_parts, df_interaction)) if df_interaction > 0 else 1.0
+        p_operators = (
+            float(1 - sp_stats.f.cdf(f_operators, df_operators, df_interaction)) if df_interaction > 0 else 1.0
+        )
+
+        anova_table = [
+            AnovaRow("零件 (Parts)", ss_parts, df_parts, ms_parts, f_parts, p_parts),
+            AnovaRow("操作者 (Operators)", ss_operators, df_operators, ms_operators, f_operators, p_operators),
+            AnovaRow(
+                "交互 (Interaction)", ss_interaction, df_interaction, ms_interaction, f_interaction, p_interaction
+            ),
+            AnovaRow("重复性 (Error)", ss_error, df_error, ms_error, 0.0, 0.0),
+            AnovaRow("合计 (Total)", ss_total, df_parts + df_operators + df_interaction + df_error, 0.0, 0.0, 0.0),
+        ]
+
+        var_repeatability = ms_error
+        var_interaction = max(0.0, (ms_interaction - ms_error) / n_trials)
+        var_reproducibility = max(0.0, (ms_operators - ms_interaction) / (n_parts * n_trials))
+        var_parts = max(0.0, (ms_parts - ms_interaction) / (n_operators * n_trials))
 
     var_total = var_repeatability + var_reproducibility + var_interaction + var_parts
     var_grr = var_repeatability + var_reproducibility + var_interaction

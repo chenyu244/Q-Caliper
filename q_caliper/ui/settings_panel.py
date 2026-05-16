@@ -217,7 +217,7 @@ class AboutCard(CardWidget):
 
         import PySide6.QtCore
 
-        info_layout.addRow("版本:", BodyLabel("1.0.3 (Stable)"))
+        info_layout.addRow("版本:", BodyLabel("1.0.5 (Stable)"))
         info_layout.addRow("内核:", BodyLabel(f"Python {sys.version.split()[0]} / Qt {PySide6.QtCore.__version__}"))  # type: ignore
         info_layout.addRow("状态:", BodyLabel("Typst 渲染引擎: " + ("就绪" if check_typst_available() else "未安装")))
 

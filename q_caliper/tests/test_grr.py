@@ -55,7 +55,7 @@ class TestGrrCalculation:
         n_parts, n_ops, n_trials = 10, 3, 3
         data = rng.normal(loc=50, scale=1, size=n_parts * n_ops * n_trials)
         result = calculate_grr(data, n_parts, n_ops, n_trials)
-        assert len(result.anova_table) == 5
+        assert len(result.anova_table) in (4, 5)
         assert result.anova_table[-1].source == "合计 (Total)"
 
     def test_chart_data(self) -> None:

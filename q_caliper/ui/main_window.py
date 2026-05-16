@@ -29,7 +29,7 @@ class MainWindow(FluentWindow):
 
     def __init__(self) -> None:
         super().__init__()
-        self.setWindowTitle("Q-Caliper v1.0.3")
+        self.setWindowTitle("Q-Caliper v1.0.5")
         self.resize(960, 680)
         self.setMinimumSize(QSize(800, 550))
 
