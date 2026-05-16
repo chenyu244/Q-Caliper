@@ -22,7 +22,7 @@ class ControlLimits:
 
 @dataclass
 class ViolationPoint:
-    """A point violating a Western Electric rule."""
+    """A point violating a Nelson rule."""
 
     index: int
     rule: str
@@ -145,7 +145,7 @@ def detect_violations(
     limits: ControlLimits,
     n_sigma: float = 3.0,
 ) -> list[ViolationPoint]:
-    """Detect Western Electric rule violations.
+    """Detect Nelson rule violations.
 
     Implements the 8 Nelson rules for control chart analysis.
     """
@@ -195,16 +195,13 @@ def detect_violations(
 
     for i in range(n - 14):
         window = values[i : i + 15]
-        above = sum(1 for w in window if w > cl)
-        below = sum(1 for w in window if w < cl)
-        if above >= 12 or below >= 12:
-            violations.append(ViolationPoint(i + 14, "Rule 7", "连续15点在C区内"))
+        if all(cl - sigma < w < cl + sigma for w in window):
+            violations.append(ViolationPoint(i + 14, "Rule 7", "连续15点在1σ(C区)以内"))
 
     for i in range(n - 7):
         window = values[i : i + 8]
-        above = sum(1 for w in window if w > cl + sigma or w < cl - sigma)
-        if above == 0:
-            violations.append(ViolationPoint(i + 7, "Rule 8", "连续8点在C区外(但均在控制限内)"))
+        if all(w > cl + sigma or w < cl - sigma for w in window):
+            violations.append(ViolationPoint(i + 7, "Rule 8", "连续8点在1σ(C区)以外(未出限)"))
 
     return violations
 

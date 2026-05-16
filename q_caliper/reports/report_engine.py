@@ -190,6 +190,10 @@ def _render_template(template_path: Path, data: ReportData, config: ReportConfig
     template = template.replace("{{DATE}}", config.date)
     template = template.replace("{{MODULE}}", data.module)
 
+    # 如果副标题中包含 {{DATE}}，它已经被替换。
+    # 为了确保用户要求的“子标题栏目加上当前日期”，我检查是否需要强制追加。
+    # 考虑到通用性，我直接在 subtitle 定义的地方修改模板效果更好。
+
     # Replace all custom fields
     for key, val in data.custom_data.items():
         template = template.replace(f"{{{{{key}}}}}", str(val))
@@ -472,7 +476,11 @@ def generate_msa_report(
     # ── 4. Linearity Result ──
     if linear_result is not None:
         pt_grade = (
-            "可接受" if linear_result.pt_ratio < 0.1 else "有条件接受" if linear_result.pt_ratio < 0.3 else "不可接受"
+            "可接受"
+            if linear_result.pct_linearity <= 5.0
+            else "有条件接受"
+            if linear_result.pct_linearity <= 10.0
+            else "不可接受"
         )
         lin_headers = ["指标", "值"]
         lin_rows = [
@@ -480,9 +488,9 @@ def generate_msa_report(
             ["截距 (Intercept)", f"{linear_result.intercept:.6f}"],
             ["R-squared", f"{linear_result.r_squared:.4f}"],
             ["斜率 p 值", f"{linear_result.p_slope:.4f}"],
-            ["P/T 比", f"{linear_result.pt_ratio:.4f}"],
-            ["P/T 判定", pt_grade],
-            ["线性度", f"{linear_result.linearity:.4f}"],
+            ["绝对线性度", f"{linear_result.linearity:.4f}"],
+            ["%Linearity (占比)", f"{linear_result.pct_linearity:.2f}%"],
+            ["线性度判定", pt_grade],
         ]
         custom_data["TABLE_LINEAR_RESULT"] = _format_typst_table(lin_headers, lin_rows)
 

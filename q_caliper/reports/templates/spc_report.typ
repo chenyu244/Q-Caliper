@@ -4,7 +4,7 @@
 
 #show: project.with(
   title: "统计过程控制 (SPC) 分析报告",
-  subtitle: "由 Q-Caliper 自动生成 | 模块: {{MODULE}}"
+  subtitle: "由 Q-Caliper 自动生成 | 模块: {{MODULE}} | 日期: {{DATE}}"
 )
 
 = 1. 数据总结
@@ -23,7 +23,7 @@
 
 = 4. 判异规则检测结果
 
-采用西方电气公司 (Western Electric) 八大判异准则对控制图进行自动检测。
+采用 Nelson 八大判异准则 (Nelson Rules) 对控制图进行自动检测。
 
 {{TABLE_VIOLATIONS}}
 
@@ -40,8 +40,8 @@
 + *Rule 4*: 连续 14 点交替上下。表明过程存在系统性振荡。
 + *Rule 5*: 连续 3 点中 2 点在 A 区外 (2#sym.sigma 以外)。表明过程变异增大。
 + *Rule 6*: 连续 5 点中 4 点在 B 区外 (1#sym.sigma 以外)。表明过程均值发生小幅度偏移。
-+ *Rule 7*: 连续 15 点在 C 区内 (1#sym.sigma 以内)。表明数据分层或采样方式不当。
-+ *Rule 8*: 连续 8 点在 C 区外 (均在控制限内)。表明过程变异减小或数据混合。
++ *Rule 7*: 连续 15 点在 C 区内 (1#sym.sigma 以内)。可能存在分层、分辨率不足、过度筛选或非自然采样。
++ *Rule 8*: 连续 8 点在 C 区外 (均在控制限内)。可能存在过程混合 (mixture) 或过度调节 (tampering)。
 
 == 6.2 过程能力趋势说明
 过程能力趋势图将数据分为 5 段, 逐段计算 Cpk 值:

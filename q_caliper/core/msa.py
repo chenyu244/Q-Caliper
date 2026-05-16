@@ -45,7 +45,7 @@ class LinearResult:
     r_squared: float
     p_slope: float
     p_intercept: float
-    pt_ratio: float
+    pct_linearity: float
     linearity: float
     points: list[LinearPoint]
     regression_line_x: list[float]
@@ -126,8 +126,8 @@ def analyze_linearity(
     x_fit = np.linspace(refs.min(), refs.max(), 50)
     y_fit = slope * x_fit + intercept
 
-    pt_ratio = abs(slope) * process_variation if process_variation > 0 else 0.0
-    linearity = float(np.mean(np.abs(biases)))
+    pct_linearity = abs(slope) * 100.0
+    linearity = abs(slope) * process_variation if process_variation > 0 else 0.0
 
     points = [
         LinearPoint(reference=float(r), observed_mean=float(m), bias=float(b))
@@ -140,7 +140,7 @@ def analyze_linearity(
         r_squared=float(r_squared),
         p_slope=float(p_value),
         p_intercept=0.0,
-        pt_ratio=float(pt_ratio),
+        pct_linearity=float(pct_linearity),
         linearity=linearity,
         points=points,
         regression_line_x=x_fit.tolist(),

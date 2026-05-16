@@ -80,10 +80,11 @@ class ColumnMappingCard(CardWidget):
 
         spec_lbl_layout = QHBoxLayout()
         spec_lbl_layout.setContentsMargins(0, 0, 0, 0)
+        spec_lbl_layout.setSpacing(10)
         spec_lbl_layout.addWidget(QLabel("规格限 (LSL / USL):"))
         self.magic_btn = PushButton("智能推荐")
-        self.magic_btn.setFixedHeight(22)
-        self.magic_btn.setStyleSheet("font-size: 11px; padding: 0 5px;")
+        self.magic_btn.setFixedHeight(24)
+        self.magic_btn.setStyleSheet("font-size: 12px; padding: 0 10px;")
         self.magic_btn.clicked.connect(self._show_spec_menu)
         spec_lbl_layout.addWidget(self.magic_btn)
         spec_lbl_layout.addStretch()
@@ -91,10 +92,34 @@ class ColumnMappingCard(CardWidget):
 
         sg_lbl_layout = QHBoxLayout()
         sg_lbl_layout.setContentsMargins(0, 0, 0, 0)
+        sg_lbl_layout.setSpacing(6)
         sg_lbl_layout.addWidget(QLabel("子组大小:"))
         self.sg_help = PushButton("")
-        self.sg_help.setIcon(FluentIcon.QUESTION)
-        self.sg_help.setFixedSize(20, 20)
+        self.sg_help.setIcon(FluentIcon.INFO)
+        self.sg_help.setFixedSize(24, 24)
+        self.sg_help.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sg_help.setStyleSheet("""
+            PushButton {
+                background: transparent;
+                border: none;
+                margin: 0px;
+                padding: 0px;
+            }
+            PushButton:hover {
+                background-color: rgba(0, 0, 0, 0.05);
+                border-radius: 4px;
+            }
+            QToolTip {
+                background-color: #ffffff;
+                color: #333333;
+                border: 1px solid #dcdcdc;
+                padding: 8px;
+                border-radius: 4px;
+                font-family: "Microsoft YaHei";
+                font-size: 13px;
+            }
+        """)
+        self.sg_help.setToolTipDuration(30000)  # 设置为 30 秒，确保用户能看完，鼠标移开会自动消失
         self.sg_help.setToolTip(
             "推荐原则：\n"
             "1. 子组内样本应在短时间内产生，子组间应有时间差。\n"

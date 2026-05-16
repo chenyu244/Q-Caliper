@@ -50,7 +50,8 @@ r_ucl = d4_const * r_cl
 === 2.2 I-MR 控制图 (Individual-Moving Range)
 
 *1. I 图 (单值图)*：
-- 控制限：$ "CL" plus.minus 2.66 times macron("MR") $
+- 控制限：$ "UCL" / "LCL" = macron(x) plus.minus 3 macron("MR") / d_2 $
+  _（注：单值移动极差 $n=2$ 时 $d_2 = 1.128$，因此 $3 / 1.128 approx 2.66$，实际应用中常简写为 $macron(x) plus.minus 2.66 times macron("MR")$）_
 
 *2. MR 图 (移动极差图)*：
 - 控制限：$ "UCL" = 3.267 times macron("MR") $，$ "LCL" = 0 $
@@ -59,7 +60,7 @@ r_ucl = d4_const * r_cl
 
 == 3. 八大判异准则 (Nelson Rules)
 
-Q-Caliper 实现了完整的西方电气 (Western Electric) 判异准则，用于自动识别过程的不稳定性。
+Q-Caliper 实现了完整的 Nelson 八大判异准则 (Nelson Rules)，用于自动识别过程的不稳定性。
 
 #table(
   columns: (0.8fr, 1.5fr, 3fr),
@@ -80,9 +81,9 @@ Q-Caliper 实现了完整的西方电气 (Western Electric) 判异准则，用�
   
   [Rule 6], [5 点中有 4 点落在 1$sigma$ 外], [过程均值已发生小幅度漂移。],
   
-  [Rule 7], [连续 15 点落在 1$sigma$ 以内], [数据“过度平稳”，需检查采样是否真实或存在数据造假。],
+  [Rule 7], [连续 15 点落在 1$sigma$ 以内], [可能存在分层、分辨率不足、过度筛选或非自然采样。],
   
-  [Rule 8], [连续 8 点在 1$sigma$ 外但未出限], [过程变异发生了双向扩张或数据混合。],
+  [Rule 8], [连续 8 点在 1$sigma$ 外但未出限], [可能存在过程混合 (mixture) 或过度调节 (tampering)。],
 )
 
 ---
@@ -100,9 +101,29 @@ Q-Caliper 实现了完整的西方电气 (Western Electric) 判异准则，用�
 
 ---
 
-== 5. API 调用示例
+== 5. 控制限 vs 规格限 (核心辨析)
 
-=== 5.1 生成 Xbar-R 控制图
+这是整个 SPC 质量体系的灵魂概念，工程师必须严格区分：
+
+#table(
+  columns: (1.5fr, 1.5fr, 3fr),
+  inset: 10pt,
+  fill: (x, y) => if y == 0 { luma(200) } else if calc.rem(y, 2) == 0 { luma(245) } else { white },
+  stroke: 0.5pt,
+  [*限值类型*], [*来源与决定因素*], [*核心作用*],
+  [控制限 (UCL/LCL)], [过程的内在统计特性\ （由均值和变异计算得出）], [判断过程是否*稳定受控*。\ 提示是否存在特殊原因。],
+  [规格限 (USL/LSL)], [客户或产品设计要求\ （与实际制造表现无关）], [判断产品是否*合格*。],
+)
+
+*核心准则*：
+- *SPC 不看规格*：控制图只监控稳定性，点在控制限内不代表产品合格（可能整体偏离目标）。
+- *Capability (能力分析) 才看规格*：只有当过程稳定后，结合规格限计算的 Cpk/Ppk 才有预测未来质量的意义。
+
+---
+
+== 6. API 调用示例
+
+=== 6.1 生成 Xbar-R 控制图
 
 ```python
 from q_caliper.core.spc import xbar_r_chart
@@ -119,7 +140,7 @@ for v in x_chart.violations:
 print(f"UCL: {x_chart.limits.ucl}, CL: {x_chart.limits.cl}")
 ```
 
-=== 5.2 生成 I-MR 控制图
+=== 6.2 生成 I-MR 控制图
 
 ```python
 from q_caliper.core.spc import imr_chart
@@ -130,7 +151,7 @@ print(f"单值图平均值: {i_chart.limits.cl}")
 
 ---
 
-== 6. 最佳实践指南
+== 7. 最佳实践指南
 
 1. *先看波动图，再看均值图*：在分析 Xbar-R 时，若 R 图失控（变异不稳定），则 Xbar 图的控制限也失去了统计意义。应先稳定过程变异。
 2. *子组大小的选择*：子组大小 $n$ 常用 4 或 5。$n > 10$ 时推荐使用 Xbar-S 控制图（Q-Caliper 将在后续版本中强化 S 图支持）。

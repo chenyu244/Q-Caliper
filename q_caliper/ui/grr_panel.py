@@ -70,9 +70,18 @@ class GrrInputCard(CardWidget):
         header.setStyleSheet("font-size: 14px;")
         header_row.addWidget(header)
         header_row.addStretch()
+
+        from qfluentwidgets import ToolButton
+
+        self.toggle_btn = ToolButton(FluentIcon.UP, self)
+        self.toggle_btn.setFixedSize(30, 30)
+        self.toggle_btn.clicked.connect(self._toggle_input)
+        header_row.addWidget(self.toggle_btn)
         layout.addLayout(header_row)
 
-        form_layout = QGridLayout()
+        self.content_widget = QWidget()
+        form_layout = QGridLayout(self.content_widget)
+        form_layout.setContentsMargins(0, 8, 0, 0)
         form_layout.setVerticalSpacing(8)
         form_layout.setHorizontalSpacing(20)
 
@@ -146,7 +155,15 @@ class GrrInputCard(CardWidget):
         form_layout.addLayout(btn_layout, 0, 3, 4, 1, Qt.AlignmentFlag.AlignVCenter)
         form_layout.setColumnStretch(2, 1)
 
-        layout.addLayout(form_layout)
+        layout.addWidget(self.content_widget)
+
+    def _toggle_input(self) -> None:
+        if self.content_widget.isVisible():
+            self.content_widget.hide()
+            self.toggle_btn.setIcon(FluentIcon.DOWN)
+        else:
+            self.content_widget.show()
+            self.toggle_btn.setIcon(FluentIcon.UP)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df

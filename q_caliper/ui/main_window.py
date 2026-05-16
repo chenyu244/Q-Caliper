@@ -56,10 +56,10 @@ class MainWindow(FluentWindow):
         self.settings_panel = SettingsPanelWidget(self)
 
         self.addSubInterface(self.data_center, FluentIcon.HOME, "数据中心")
-        self.addSubInterface(self.cpk_panel, FluentIcon.PIE_SINGLE, "正态分析")
-        self.addSubInterface(self.msa_panel, FluentIcon.SPEED_HIGH, "MSA 分析")
-        self.addSubInterface(self.spc_panel, FluentIcon.SPEED_MEDIUM, "SPC 分析")
-        self.addSubInterface(self.doe_panel, FluentIcon.LAYOUT, "实验设计 (DOE)")
+        self.addSubInterface(self.cpk_panel, FluentIcon.PIE_SINGLE, "能力分析(Capability)")
+        self.addSubInterface(self.spc_panel, FluentIcon.SPEED_MEDIUM, "过程控制(SPC)")
+        self.addSubInterface(self.msa_panel, FluentIcon.SPEED_HIGH, "测量分析(MSA)")
+        self.addSubInterface(self.doe_panel, FluentIcon.LAYOUT, "过程优化(DOE)")
 
         self.navigationInterface.addSeparator()
 

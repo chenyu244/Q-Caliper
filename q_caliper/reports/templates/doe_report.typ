@@ -4,7 +4,7 @@
 
 #show: project.with(
   title: "实验设计 (DOE) 分析报告",
-  subtitle: "由 Q-Caliper 自动生成 | 模块: {{MODULE}}"
+  subtitle: "由 Q-Caliper 自动生成 | 模块: {{MODULE}} | 日期: {{DATE}}"
 )
 
 = 1. 实验设计总结

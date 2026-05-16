@@ -81,13 +81,70 @@ class DataPreviewWidget(QWidget):
         header_row.addWidget(self.row_label)
         layout.addLayout(header_row)
 
+        from PySide6.QtWidgets import QFrame, QStackedWidget
+
+        self.content_stack = QStackedWidget()
+
+        # Tips Area (Visible by default)
+        self.tips_container = QFrame()
+        self.tips_container.setObjectName("tips_container")
+        tips_layout = QVBoxLayout(self.tips_container)
+        tips_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        tips_layout.setContentsMargins(40, 40, 40, 40)
+        tips_layout.setSpacing(15)
+        self.tips_container.setStyleSheet("""
+            QFrame#tips_container {
+                background-color: #ffffff;
+                border: 2px dashed #ccc;
+                border-radius: 12px;
+            }
+        """)
+
+        welcome_title = TitleLabel("欢迎使用 Q-Caliper 数据中心")
+        welcome_title.setStyleSheet("font-size: 18px; color: #0078D4; border: none; background: transparent;")
+        tips_layout.addWidget(welcome_title, 0, Qt.AlignmentFlag.AlignCenter)
+        tips_layout.addSpacing(10)
+
+        # Inner container for left-aligned list within a centered area
+        inner_tips_widget = QWidget()
+        inner_tips_layout = QVBoxLayout(inner_tips_widget)
+        inner_tips_layout.setContentsMargins(0, 0, 0, 0)
+        inner_tips_layout.setSpacing(12)
+
+        tips_data = [
+            ("📁", "拖入数据文件可自动整理数据并在当前文件夹建立 [Q]_ 副本，支持双向实时同步。"),
+            ("🔍", "支持前 20 行自动搜寻表头，并能自动识别合并复杂的双行表头。"),
+            ("📝", "针对 Excel 合并单元格情况，系统将自动进行重复填充以确保数据完整性。"),
+            ("📑", "支持多页表格（Sheet），检测到多个数据页面时将提示您进行选择。"),
+            ("💡", "系统将智能推断数据角色并推荐分析模式，您也可以双击预览表头手动修正。"),
+        ]
+
+        for icon, text in tips_data:
+            tip_item = QHBoxLayout()
+            tip_item.setSpacing(12)
+
+            icon_label = BodyLabel(icon)
+            icon_label.setFixedWidth(25)  # Fixed width to align icons
+            icon_label.setStyleSheet("font-size: 16px; background: transparent; border: none;")
+            tip_item.addWidget(icon_label)
+
+            text_label = BodyLabel(text)
+            text_label.setStyleSheet("color: #444; font-size: 14px; background: transparent; border: none;")
+            tip_item.addWidget(text_label)
+
+            inner_tips_layout.addLayout(tip_item)
+
+        tips_layout.addWidget(inner_tips_widget, 0, Qt.AlignmentFlag.AlignCenter)
+
+        self.content_stack.addWidget(self.tips_container)
+
         self.table = QTableWidget()
         self.table.setAlternatingRowColors(True)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.verticalHeader().setDefaultSectionSize(28)
         self.table.setStyleSheet("""
             QTableWidget {
-                border: 2px dashed #ccc;
+                border: 1px solid #edebe9;
                 border-radius: 6px;
                 background: white;
                 alternate-background-color: #f8f9fa;
@@ -112,7 +169,9 @@ class DataPreviewWidget(QWidget):
         self.table.horizontalHeader().sectionDoubleClicked.connect(self._edit_header)
         self.table.itemChanged.connect(self._on_item_changed)
 
-        layout.addWidget(self.table)
+        self.content_stack.addWidget(self.table)
+        self.content_stack.setCurrentWidget(self.tips_container)
+        layout.addWidget(self.content_stack, 1)
 
     def set_sync_time(self, time_dt: datetime | None = None) -> None:
         if time_dt:
@@ -123,25 +182,33 @@ class DataPreviewWidget(QWidget):
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
         if event.mimeData().hasUrls():
             event.acceptProposedAction()
-            self.table.setStyleSheet(
-                self.table.styleSheet().replace(
-                    "border: 2px dashed #ccc;", "border: 2px dashed #0078D4; background: #f0f8ff;"
-                )
+            target = self.table if self.content_stack.currentWidget() == self.table else self.tips_container
+            target.setStyleSheet(
+                target.styleSheet()
+                .replace("border: 2px dashed #ccc;", "border: 2px dashed #0078D4; background-color: #f0f8ff;")
+                .replace("border: 1px solid #edebe9;", "border: 2px dashed #0078D4; background: #f0f8ff;")
             )
 
     def dragLeaveEvent(self, event: QDragLeaveEvent) -> None:
-        self.table.setStyleSheet(
-            self.table.styleSheet().replace(
-                "border: 2px dashed #0078D4; background: #f0f8ff;", "border: 2px dashed #ccc;"
+        target = self.table if self.content_stack.currentWidget() == self.table else self.tips_container
+        if self.content_stack.currentWidget() == self.table:
+            target.setStyleSheet(
+                target.styleSheet().replace(
+                    "border: 2px dashed #0078D4; background: #f0f8ff;", "border: 1px solid #edebe9;"
+                )
             )
-        )
+        else:
+            target.setStyleSheet(
+                target.styleSheet().replace(
+                    "border: 2px dashed #0078D4; background-color: #f0f8ff;",
+                    "border: 2px dashed #ccc; background-color: #ffffff;",
+                )
+            )
 
     def dropEvent(self, event: QDropEvent) -> None:
-        self.table.setStyleSheet(
-            self.table.styleSheet().replace(
-                "border: 2px dashed #0078D4; background: #f0f8ff;", "border: 2px dashed #ccc;"
-            )
-        )
+        # Reset style
+        self.dragLeaveEvent(None)  # type: ignore
+
         urls = event.mimeData().urls()
         if urls:
             path = urls[0].toLocalFile()
@@ -416,6 +483,10 @@ class DataPreviewWidget(QWidget):
                 self.table.setItem(i + 1, j, item)
 
         self.table.resizeColumnsToContents()
+
+        # Switch visibility
+        self.content_stack.setCurrentWidget(self.table)
+
         self.table.blockSignals(False)
         self._loading = False
         self.sync_btn.show()

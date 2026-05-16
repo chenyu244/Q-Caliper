@@ -80,19 +80,21 @@ is_significant = p_val < 0.05
 - $b$ (Slope)：斜率，反映量程内的比例偏差。
 - $a$ (Intercept)：截距。
 
-*关键指标 - P/T 比 (Percent Toxicity)*：
-$ "P/T" = (|b| times "Process Variation") / "Tolerance" $
+*关键指标 - 线性度 (Linearity) 与 %Linearity*：
+$ "Linearity" = |b| times "Process Variation" $
+$ %"Linearity" = "Linearity" / "Process Variation" times 100% = |b| times 100% $
 （Q-Caliper 默认使用 $6 sigma$ 或规格限作为过程变异）
 
 *Q-Caliper 实现*：
 ```python
 slope, intercept, r_value, p_value, _ = stats.linregress(refs, biases)
-linearity = np.mean(np.abs(biases))
-pt_ratio = abs(slope) * process_variation
+linearity = abs(slope) * process_variation
+pct_linearity = abs(slope) * 100.0
 ```
 
 === 3.2 诊断标准
-- *P/T 比 < 10%*：线性优良。
+- *%Linearity <= 5%*：线性优良。
+- *5% < %Linearity <= 10%*：有条件接受。
 - *R-squared 接近 1*：说明偏差具有极强的线性趋势，必须通过修正系数或重新校准来补偿。
 
 ---
@@ -168,7 +170,7 @@ linear_res = analyze_linearity(
     observed_means=[10.1, 20.2, 30.3, 40.4, 50.5],
     process_variation=10.0 # 通常为 6*sigma 或公差
 )
-print(f"Slope: {linear_res.slope}, P/T Ratio: {linear_res.pt_ratio:.2%}")
+print(f"Slope: {linear_res.slope}, %Linearity: {linear_res.pct_linearity:.2f}%")
 ```
 
 === 6.2 量具 R&R (ANOVA)

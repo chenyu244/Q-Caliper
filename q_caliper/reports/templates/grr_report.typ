@@ -4,7 +4,7 @@
 
 #show: project.with(
   title: "量具 R&R 研究 - 方差分析法",
-  subtitle: "由 Q-Caliper 自动生成 | 模块: {{MODULE}}"
+  subtitle: "由 Q-Caliper 自动生成 | 模块: {{MODULE}} | 日期: {{DATE}}"
 )
 
 = 1. 数据总结

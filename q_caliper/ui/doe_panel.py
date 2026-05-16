@@ -85,7 +85,19 @@ class DoeInputCard(CardWidget):
         header.setStyleSheet("font-size: 14px;")
         header_row.addWidget(header)
         header_row.addStretch()
+
+        from qfluentwidgets import ToolButton
+
+        self.toggle_btn = ToolButton(FluentIcon.UP, self)
+        self.toggle_btn.setFixedSize(30, 30)
+        self.toggle_btn.clicked.connect(self._toggle_input)
+        header_row.addWidget(self.toggle_btn)
+
         layout.addLayout(header_row)
+
+        self.content_widget = QWidget()
+        content_layout = QVBoxLayout(self.content_widget)
+        content_layout.setContentsMargins(0, 8, 0, 0)
 
         form_layout = QGridLayout()
         form_layout.setVerticalSpacing(8)
@@ -128,15 +140,15 @@ class DoeInputCard(CardWidget):
         self.gen_btn.clicked.connect(self._on_generate)
         row_btn_layout.addWidget(self.gen_btn)
 
-        self.export_btn = PushButton("导出 Excel")
+        self.export_btn = PushButton("导出设计 Excel")
         self.export_btn.setIcon(FluentIcon.SAVE)
-        self.export_btn.setFixedWidth(100)
+        self.export_btn.setFixedWidth(130)
         self.export_btn.setFixedHeight(32)
         self.export_btn.clicked.connect(self._on_export_excel)
         row_btn_layout.addWidget(self.export_btn)
         btn_layout.addLayout(row_btn_layout)
 
-        self.report_btn = PushButton("导出 PDF 报告")
+        self.report_btn = PushButton("导出 PDF")
         self.report_btn.setIcon(FluentIcon.PRINT)
         self.report_btn.setFixedHeight(32)
         self.report_btn.clicked.connect(self._on_export_pdf)
@@ -146,7 +158,7 @@ class DoeInputCard(CardWidget):
         form_layout.addLayout(btn_layout, 0, 3, 2, 1, Qt.AlignmentFlag.AlignVCenter)
         form_layout.setColumnStretch(2, 1)
 
-        layout.addLayout(form_layout)
+        content_layout.addLayout(form_layout)
 
         # Bottom: Response variable selection for analysis
         resp_layout = QHBoxLayout()
@@ -167,7 +179,17 @@ class DoeInputCard(CardWidget):
         resp_layout.addWidget(self.calc_btn)
 
         resp_layout.addStretch()
-        layout.addLayout(resp_layout)
+        content_layout.addLayout(resp_layout)
+
+        layout.addWidget(self.content_widget)
+
+    def _toggle_input(self) -> None:
+        if self.content_widget.isVisible():
+            self.content_widget.hide()
+            self.toggle_btn.setIcon(FluentIcon.DOWN)
+        else:
+            self.content_widget.show()
+            self.toggle_btn.setIcon(FluentIcon.UP)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df
@@ -227,13 +249,9 @@ class DoeInputCard(CardWidget):
         df.insert(1, "RunOrder", design.run_order)
         df.to_excel(path, index=False, engine="openpyxl")
 
-        main_win = self.window()
-        if hasattr(main_win, "data_center"):
-            main_win.data_center.load_file(path)
-
         InfoBar.success(
             "导出成功",
-            f"已保存并加载到数据中心: {path}\n请在数据中心填入实验结果后返回计算因子效应",
+            f"设计矩阵已保存至: {path}",
             parent=self,
             duration=5000,
         )

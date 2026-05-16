@@ -71,16 +71,25 @@ class MsaInputCard(CardWidget):
         header_row.addWidget(header)
         header_row.addStretch()
 
-        self.report_btn = PushButton("导出 PDF 报告")
+        self.report_btn = PushButton("导出 PDF")
         self.report_btn.setIcon(FluentIcon.PRINT)
         self.report_btn.setFixedWidth(130)
         self.report_btn.setFixedHeight(30)
         self.report_btn.clicked.connect(self._on_export_pdf)
         self.report_btn.setEnabled(False)
         header_row.addWidget(self.report_btn)
+
+        from qfluentwidgets import ToolButton
+
+        self.toggle_btn = ToolButton(FluentIcon.UP, self)
+        self.toggle_btn.setFixedSize(30, 30)
+        self.toggle_btn.clicked.connect(self._toggle_input)
+        header_row.addWidget(self.toggle_btn)
+
         layout.addLayout(header_row)
 
-        content_layout = QHBoxLayout()
+        self.content_widget = QWidget()
+        content_layout = QHBoxLayout(self.content_widget)
         content_layout.setContentsMargins(0, 8, 0, 0)
         content_layout.setSpacing(20)
 
@@ -162,7 +171,15 @@ class MsaInputCard(CardWidget):
 
         content_layout.addWidget(lin_card)
 
-        layout.addLayout(content_layout)
+        layout.addWidget(self.content_widget)
+
+    def _toggle_input(self) -> None:
+        if self.content_widget.isVisible():
+            self.content_widget.hide()
+            self.toggle_btn.setIcon(FluentIcon.DOWN)
+        else:
+            self.content_widget.show()
+            self.toggle_btn.setIcon(FluentIcon.UP)
 
     def set_dataframe(self, df: pd.DataFrame) -> None:
         self.df = df
@@ -431,7 +448,9 @@ class MsaChartsDashboard(QWidget):
 
         ax_stats = fig.add_subplot(gs[1])
         ax_stats.axis("off")
-        pt_grade = "可接受" if result.pt_ratio < 0.1 else "有条件接受" if result.pt_ratio < 0.3 else "不可接受"
+        pt_grade = (
+            "可接受" if result.pct_linearity <= 5.0 else "有条件接受" if result.pct_linearity <= 10.0 else "不可接受"
+        )
         stats_text = (
             f"线性分析结果\n"
             f"\n"
@@ -440,9 +459,9 @@ class MsaChartsDashboard(QWidget):
             f"R-squared:         {result.r_squared:.4f}\n"
             f"斜率 p 值:         {result.p_slope:.4f}\n"
             f"\n"
-            f"P/T 比:            {result.pt_ratio:.4f}\n"
+            f"绝对线性度:        {result.linearity:.4f}\n"
+            f"%Linearity:        {result.pct_linearity:.2f}%\n"
             f"判定:              {pt_grade}\n"
-            f"线性度:            {result.linearity:.4f}\n"
         )
         ax_stats.text(
             0, 1, stats_text, transform=ax_stats.transAxes, verticalalignment="top", fontsize=9, linespacing=1.5

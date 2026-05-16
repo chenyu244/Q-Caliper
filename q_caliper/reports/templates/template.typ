@@ -1,7 +1,7 @@
-#import "@preview/cuti:0.3.0": show-cn-fakebold
+#import "@preview/zh-format:0.1.0":*
 
 #let project(title: "", subtitle: "", body) = {
-  show: show-cn-fakebold
+  show: zh-format
   
   set page(
     paper: "a4",
